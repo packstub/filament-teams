@@ -24,10 +24,13 @@ use Packstub\Teams\Exceptions\InvalidInvitation;
 use Packstub\Teams\Exceptions\InvalidRole;
 use Packstub\Teams\Exceptions\LastOwnerException;
 use Packstub\Teams\Exceptions\NotAMember;
+use Packstub\Teams\Exceptions\ResendTooSoon;
 use Packstub\Teams\Exceptions\SeatLimitReached;
+use Packstub\Teams\Exceptions\TeamsException;
 use Packstub\Teams\Mail\TeamInvitationMail;
 use Packstub\Teams\Models\Membership;
 use Packstub\Teams\Models\TeamInvitation;
+use Packstub\Teams\Notifications\TeamInvitationNotification;
 use Packstub\Teams\Roles\RoleProvider;
 use Packstub\Teams\Roles\SimpleRoleProvider;
 use Packstub\Teams\Roles\SpatieRoleProvider;
@@ -46,7 +49,12 @@ class Teams
 
     protected ?Closure $canInviteUsing = null;
 
+    protected ?Closure $personalTeamUsing = null;
+
     public const SESSION_INVITATION = 'packstub-teams.invitation';
+
+    /** Set when a listener accepted the session invitation, so the accept route can still greet. */
+    public const SESSION_JOINED = 'packstub-teams.joined';
 
     // ------------------------------------------------------------------
     // Configuration hooks (set by TeamsPlugin or the host app)
@@ -76,6 +84,16 @@ class Teams
     public function canInviteUsing(?Closure $callback): static
     {
         $this->canInviteUsing = $callback;
+
+        return $this;
+    }
+
+    /**
+     * fn (Model $user): Model — builds (and saves) a new user's personal team.
+     */
+    public function personalTeamUsing(?Closure $callback): static
+    {
+        $this->personalTeamUsing = $callback;
 
         return $this;
     }
@@ -133,6 +151,44 @@ class Teams
         return $this->roles($team)[$role] ?? Str::headline($role);
     }
 
+    public function roleDescription(Model $team, string $role): ?string
+    {
+        return $this->roleProvider()->describe($team, $role);
+    }
+
+    /**
+     * Role → description map for pickers.
+     *
+     * @return array<string, string>
+     */
+    public function roleDescriptions(Model $team): array
+    {
+        return collect($this->roles($team))
+            ->map(fn (string $label, string $role): ?string => $this->roleDescription($team, $role))
+            ->filter()
+            ->all();
+    }
+
+    /**
+     * Does the user hold $permission in $team? Owners hold everything;
+     * other members are answered by the role provider (config permissions,
+     * or Spatie / Shield).
+     */
+    public function userCan(Model $user, Model $team, string $permission): bool
+    {
+        $role = $this->roleOf($team, $user);
+
+        if ($role === null) {
+            return false;
+        }
+
+        if ($role === $this->ownerRole()) {
+            return true;
+        }
+
+        return $this->roleProvider()->can($user, $team, $role, $permission);
+    }
+
     public function ownerRole(): string
     {
         return (string) config('packstub-teams.roles.owner', 'owner');
@@ -182,6 +238,40 @@ class Teams
         }
 
         return $this->canManage($user, $team);
+    }
+
+    // ------------------------------------------------------------------
+    // Personal teams
+    // ------------------------------------------------------------------
+
+    public function createsPersonalTeams(): bool
+    {
+        return (bool) config('packstub-teams.personal_teams.enabled', false) && $this->personalTeamUsing !== null;
+    }
+
+    /**
+     * Create the user's personal team through the configured factory and
+     * make them its owner. Returns null when personal teams are off.
+     */
+    public function createPersonalTeam(Model $user): ?Model
+    {
+        if (! $this->createsPersonalTeams()) {
+            return null;
+        }
+
+        /** @var Model $team */
+        $team = ($this->personalTeamUsing)($user);
+
+        if (! $this->isMember($team, $user)) {
+            $this->addMember($team, $user, $this->ownerRole());
+        }
+
+        return $team;
+    }
+
+    public function personalTeamName(Model $user): string
+    {
+        return str_replace(':name', (string) ($user->getAttribute('name') ?? 'My'), (string) config('packstub-teams.personal_teams.name', ":name's Team"));
     }
 
     // ------------------------------------------------------------------
@@ -271,7 +361,8 @@ class Teams
         $seats = $this->membersOf($team)->count();
 
         if (config('packstub-teams.invitations.count_pending_toward_seats', true)) {
-            $seats += $this->invitationsOf($team)->pending()->count();
+            // Links hold no seat until someone uses them.
+            $seats += $this->invitationsOf($team)->pending()->emails()->count();
         }
 
         return $seats;
@@ -436,6 +527,8 @@ class Teams
             'invited_by' => $inviter?->getKey(),
             'expires_at' => $this->invitationExpiry(),
             'accepted_at' => null,
+            'max_uses' => 1,
+            'uses' => 0,
         ]);
         $invitation->team()->associate($team);
         $invitation->token = TeamInvitation::generateToken();
@@ -450,10 +543,76 @@ class Teams
         return $invitation;
     }
 
+    /**
+     * Invite several addresses at once. Addresses that fail a rule are
+     * reported instead of aborting the batch.
+     *
+     * @param  iterable<int, string>  $emails
+     * @return array{invitations: array<int, TeamInvitation>, errors: array<string, string>}
+     */
+    public function inviteMany(Model $team, iterable $emails, ?string $role = null, ?Model $inviter = null, bool $send = true): array
+    {
+        $emails = collect($emails)->map(fn ($e) => Str::lower(trim((string) $e)))->filter()->unique()->values();
+        $max = (int) config('packstub-teams.invitations.max_batch', 10);
+
+        if ($max > 0 && $emails->count() > $max) {
+            throw new TeamsException(__('packstub-teams::teams.errors.too_many_invites', ['max' => $max]));
+        }
+
+        $invitations = [];
+        $errors = [];
+
+        foreach ($emails as $email) {
+            if (! filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                $errors[$email] = __('packstub-teams::teams.errors.invalid_email');
+
+                continue;
+            }
+
+            try {
+                $invitations[] = $this->invite($team, $email, $role, $inviter, $send);
+            } catch (TeamsException $exception) {
+                $errors[$email] = $exception->getMessage();
+            }
+        }
+
+        return ['invitations' => $invitations, 'errors' => $errors];
+    }
+
+    /**
+     * A shareable link anyone signed in may use (until it expires or its
+     * uses run out). Links never count toward seats until they are used.
+     */
+    public function createInviteLink(Model $team, ?string $role = null, ?int $maxUses = null, ?Carbon $expiresAt = null, ?Model $inviter = null): TeamInvitation
+    {
+        $role ??= $this->defaultRoleFor($team);
+
+        $this->assertRole($team, $role, allowOwner: false);
+
+        $invitation = new TeamInvitation([
+            'email' => null,
+            'role' => $role,
+            'invited_by' => $inviter?->getKey(),
+            'expires_at' => $expiresAt ?? $this->invitationExpiry(),
+            'max_uses' => $maxUses,
+            'uses' => 0,
+        ]);
+        $invitation->team()->associate($team);
+        $invitation->save();
+
+        MemberInvited::dispatch($invitation);
+
+        return $invitation;
+    }
+
     public function resend(TeamInvitation $invitation): TeamInvitation
     {
-        if ($invitation->accepted_at !== null) {
+        if ($invitation->accepted_at !== null || $invitation->isLink()) {
             throw InvalidInvitation::make();
+        }
+
+        if ($at = $invitation->canResendAt()) {
+            throw ResendTooSoon::until($at);
         }
 
         $invitation->regenerateToken();
@@ -473,7 +632,8 @@ class Teams
             throw InvalidInvitation::make();
         }
 
-        if (config('packstub-teams.invitations.require_email_match', true)
+        if (! $invitation->isLink()
+            && config('packstub-teams.invitations.require_email_match', true)
             && Str::lower((string) $user->getAttribute('email')) !== $invitation->email) {
             throw InvalidInvitation::make();
         }
@@ -482,20 +642,80 @@ class Teams
         $team = $invitation->team;
 
         if ($this->isMember($team, $user)) {
-            $invitation->delete();
+            if (! $invitation->isLink()) {
+                $invitation->delete();
+            }
 
             throw AlreadyAMember::make();
         }
 
         DB::transaction(function () use ($invitation, $team, $user): void {
-            // The pending invitation counts as a seat when configured, so
-            // free it before the membership takes that seat.
-            $invitation->forceFill(['accepted_at' => now()])->save();
+            $invitation->uses++;
+
+            // An e-mail invitation is single use and counts as a seat while
+            // pending, so close it before the membership takes that seat.
+            if (! $invitation->isLink() || $invitation->isExhausted()) {
+                $invitation->accepted_at = now();
+            }
+
+            $invitation->save();
 
             $this->addMember($team, $user, $invitation->role);
         });
 
         InvitationAccepted::dispatch($invitation, $user);
+    }
+
+    /**
+     * Accept every pending e-mail invitation addressed to the user. Returns
+     * the teams joined; rule violations (seats, already a member) are
+     * skipped silently — the user can still follow the link later.
+     *
+     * @return array<int, Model>
+     */
+    public function acceptAllFor(Model $user): array
+    {
+        $email = Str::lower((string) $user->getAttribute('email'));
+        $joined = [];
+
+        if ($email === '') {
+            return $joined;
+        }
+
+        foreach (TeamInvitation::query()->pending()->where('email', $email)->get() as $invitation) {
+            try {
+                $this->accept($invitation, $user);
+                $joined[] = $invitation->team;
+            } catch (TeamsException) {
+                // Left pending for the link.
+            }
+        }
+
+        return $joined;
+    }
+
+    /**
+     * The invitation whose link brought the current visitor here, if any.
+     */
+    public function pendingInvitationFromSession(): ?TeamInvitation
+    {
+        $token = session()->get(static::SESSION_INVITATION.'.token');
+
+        return is_string($token) ? $this->findPendingInvitation($token) : null;
+    }
+
+    /**
+     * Delete expired invitations and accepted ones older than the
+     * configured retention. Returns the number of rows removed.
+     */
+    public function pruneInvitations(): int
+    {
+        $days = (int) config('packstub-teams.invitations.prune_accepted_after_days', 30);
+
+        $expired = TeamInvitation::query()->whereNull('accepted_at')->whereNotNull('expires_at')->where('expires_at', '<', now())->delete();
+        $accepted = TeamInvitation::query()->whereNotNull('accepted_at')->where('accepted_at', '<', now()->subDays($days))->delete();
+
+        return $expired + $accepted;
     }
 
     public function findPendingInvitation(string $token): ?TeamInvitation
@@ -505,12 +725,44 @@ class Teams
 
     public function sendInvitation(TeamInvitation $invitation): void
     {
+        if ($invitation->isLink()) {
+            return;
+        }
+
         $mailable = new TeamInvitationMail($invitation);
         $pending = Mail::to($invitation->email);
 
         config('packstub-teams.invitations.mail.queue', false)
             ? $pending->queue($mailable)
             : $pending->send($mailable);
+
+        $invitation->forceFill(['last_sent_at' => now()])->saveQuietly();
+
+        $this->notifyExistingUser($invitation);
+    }
+
+    /**
+     * An in-app (database) notification for invitees who already have an
+     * account, so the invite shows up even if the e-mail is missed.
+     */
+    protected function notifyExistingUser(TeamInvitation $invitation): void
+    {
+        if (! config('packstub-teams.invitations.notify_existing_users', true)) {
+            return;
+        }
+
+        $model = config('auth.providers.users.model');
+        $user = $model::query()->where('email', $invitation->email)->first();
+
+        if (! $user || ! method_exists($user, 'notify')) {
+            return;
+        }
+
+        try {
+            $user->notify(new TeamInvitationNotification($invitation));
+        } catch (\Throwable $exception) {
+            report($exception);
+        }
     }
 
     public function invitationExpiry(): ?Carbon

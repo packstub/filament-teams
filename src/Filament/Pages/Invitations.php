@@ -5,6 +5,9 @@ namespace Packstub\Teams\Filament\Pages;
 use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Facades\Filament;
+use Filament\Forms\Components\DateTimePicker;
+use Filament\Forms\Components\Select;
+use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Support\Icons\Heroicon;
@@ -14,6 +17,8 @@ use Filament\Tables\Contracts\HasTable;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Carbon;
+use Packstub\Teams\Exceptions\TeamsException;
 use Packstub\Teams\Facades\Teams;
 use Packstub\Teams\Filament\Actions\InviteMemberAction;
 use Packstub\Teams\Models\TeamInvitation;
@@ -87,7 +92,11 @@ class Invitations extends Page implements HasTable
             ->columns([
                 TextColumn::make('email')
                     ->label(__('packstub-teams::teams.fields.email'))
-                    ->searchable(),
+                    ->searchable()
+                    ->placeholder(__('packstub-teams::teams.invitations.link_row'))
+                    ->description(fn (TeamInvitation $record): ?string => $record->isLink()
+                        ? __('packstub-teams::teams.invitations.link_uses', ['uses' => $record->uses, 'max' => $record->max_uses ?? '∞'])
+                        : null),
                 TextColumn::make('role')
                     ->label(__('packstub-teams::teams.fields.role'))
                     ->badge()
@@ -114,8 +123,19 @@ class Invitations extends Page implements HasTable
                 Action::make('resend')
                     ->label(__('packstub-teams::teams.actions.resend'))
                     ->icon(Heroicon::OutlinedPaperAirplane)
-                    ->action(function (TeamInvitation $record): void {
-                        Teams::resend($record);
+                    ->visible(fn (TeamInvitation $record): bool => ! $record->isLink())
+                    ->disabled(fn (TeamInvitation $record): bool => $record->canResendAt() !== null)
+                    ->tooltip(fn (TeamInvitation $record): ?string => ($at = $record->canResendAt())
+                        ? __('packstub-teams::teams.errors.resend_too_soon', ['time' => $at->diffForHumans()])
+                        : null)
+                    ->action(function (TeamInvitation $record, Action $action): void {
+                        try {
+                            Teams::resend($record);
+                        } catch (TeamsException $exception) {
+                            Notification::make()->title($exception->getMessage())->danger()->send();
+
+                            $action->halt();
+                        }
 
                         Notification::make()->title(__('packstub-teams::teams.notifications.resent'))->success()->send();
                     }),
@@ -132,6 +152,58 @@ class Invitations extends Page implements HasTable
             ])
             ->headerActions([
                 InviteMemberAction::make(),
+                $this->createLinkAction(),
             ]);
+    }
+
+    protected function createLinkAction(): Action
+    {
+        $team = static::team();
+
+        return Action::make('createLink')
+            ->label(__('packstub-teams::teams.actions.create_link'))
+            ->icon(Heroicon::OutlinedLink)
+            ->color('gray')
+            ->visible(fn (): bool => (bool) config('packstub-teams.invitations.links', true))
+            ->modalWidth('md')
+            ->modalDescription(__('packstub-teams::teams.invitations.create_link_description'))
+            ->schema([
+                Select::make('role')
+                    ->label(__('packstub-teams::teams.fields.role'))
+                    ->options(Teams::assignableRoles($team))
+                    ->default(Teams::defaultRoleFor($team))
+                    ->required(),
+                TextInput::make('max_uses')
+                    ->label(__('packstub-teams::teams.fields.max_uses'))
+                    ->helperText(__('packstub-teams::teams.fields.max_uses_help'))
+                    ->numeric()
+                    ->minValue(1),
+                DateTimePicker::make('expires_at')
+                    ->label(__('packstub-teams::teams.fields.expires'))
+                    ->default(Teams::invitationExpiry())
+                    ->minDate(now()),
+            ])
+            ->action(function (array $data, Action $action) use ($team): void {
+                try {
+                    $invitation = Teams::createInviteLink(
+                        $team,
+                        $data['role'],
+                        filled($data['max_uses'] ?? null) ? (int) $data['max_uses'] : null,
+                        filled($data['expires_at'] ?? null) ? Carbon::parse($data['expires_at']) : null,
+                        Teams::currentUser(),
+                    );
+                } catch (TeamsException $exception) {
+                    Notification::make()->title($exception->getMessage())->danger()->send();
+
+                    $action->halt();
+                }
+
+                Notification::make()
+                    ->title(__('packstub-teams::teams.notifications.link_created'))
+                    ->body($invitation->acceptUrl())
+                    ->success()
+                    ->persistent()
+                    ->send();
+            });
     }
 }

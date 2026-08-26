@@ -12,6 +12,7 @@ use function Pest\Livewire\livewire;
 
 beforeEach(function () {
     Mail::fake();
+    config()->set('packstub-teams.invitations.resend_cooldown_minutes', 0);
 
     $this->owner = createUser(['name' => 'Olivia Owner']);
     $this->admin = createUser(['name' => 'Adam Admin']);
@@ -62,7 +63,7 @@ it('lets a manager invite, change roles and remove', function () {
 
     livewire(Members::class)
         ->assertTableActionVisible('invite')
-        ->callTableAction('invite', data: ['email' => 'new@example.com', 'role' => 'member'])
+        ->callTableAction('invite', data: ['emails' => ['new@example.com'], 'role' => 'member'])
         ->assertHasNoTableActionErrors()
         ->assertNotified('Invitation sent to new@example.com');
 
@@ -87,8 +88,8 @@ it('surfaces domain errors as notifications', function () {
     onTeam($this->owner, $this->team);
 
     livewire(Members::class)
-        ->callTableAction('invite', data: ['email' => $this->member->email, 'role' => 'member'])
-        ->assertNotified('That user is already a member of this team.');
+        ->callTableAction('invite', data: ['emails' => [$this->member->email], 'role' => 'member'])
+        ->assertNotified($this->member->email);
 
     config()->set('packstub-teams.seat_limit', 3);
 

@@ -32,6 +32,11 @@ trait HasTeamRoles
         return $role !== null && in_array($role, (array) $roles, true);
     }
 
+    public function hasTeamPermission(Model $team, string $permission): bool
+    {
+        return Teams::userCan($this, $team, $permission);
+    }
+
     public function ownsTeam(Model $team): bool
     {
         return $this->teamRole($team) === Teams::ownerRole();

@@ -5,7 +5,7 @@ namespace Packstub\Teams\Filament\Actions;
 use Filament\Actions\Action;
 use Filament\Facades\Filament;
 use Filament\Forms\Components\Select;
-use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\TagsInput;
 use Filament\Notifications\Notification;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Database\Eloquent\Model;
@@ -33,11 +33,14 @@ class InviteMemberAction extends Action
             ->visible(fn (): bool => ($team = $this->team()) !== null && Teams::canInvite(Teams::currentUser(), $team))
             ->disabled(fn (): bool => ($team = $this->team()) === null || ! Teams::hasAvailableSeats($team))
             ->schema(fn (): array => [
-                TextInput::make('email')
-                    ->label(__('packstub-teams::teams.fields.email'))
-                    ->email()
-                    ->required()
-                    ->autocomplete('off'),
+                TagsInput::make('emails')
+                    ->label(__('packstub-teams::teams.fields.emails'))
+                    ->placeholder(__('packstub-teams::teams.fields.emails_placeholder'))
+                    ->helperText(__('packstub-teams::teams.fields.emails_help', ['max' => (int) config('packstub-teams.invitations.max_batch', 10)]))
+                    ->separator(',')
+                    ->splitKeys(['Tab', ' ', ';'])
+                    ->nestedRecursiveRules(['email'])
+                    ->required(),
                 Select::make('role')
                     ->label(__('packstub-teams::teams.fields.role'))
                     ->options(Teams::assignableRoles($this->team()))
@@ -46,15 +49,27 @@ class InviteMemberAction extends Action
             ])
             ->action(function (array $data, Action $action): void {
                 try {
-                    Teams::invite($this->team(), $data['email'], $data['role'], Teams::currentUser());
+                    $result = Teams::inviteMany($this->team(), (array) $data['emails'], $data['role'], Teams::currentUser());
                 } catch (TeamsException $exception) {
                     Notification::make()->title($exception->getMessage())->danger()->send();
 
                     $action->halt();
                 }
 
+                foreach ($result['errors'] as $email => $message) {
+                    Notification::make()->title($email)->body($message)->danger()->send();
+                }
+
+                if ($result['invitations'] === []) {
+                    $action->halt();
+                }
+
+                $sent = collect($result['invitations'])->pluck('email');
+
                 Notification::make()
-                    ->title(__('packstub-teams::teams.notifications.invited', ['email' => $data['email']]))
+                    ->title($sent->count() === 1
+                        ? __('packstub-teams::teams.notifications.invited', ['email' => $sent->first()])
+                        : __('packstub-teams::teams.notifications.invited_many', ['count' => $sent->count()]))
                     ->success()
                     ->send();
             });

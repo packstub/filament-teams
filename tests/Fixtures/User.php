@@ -6,6 +6,7 @@ use Filament\Models\Contracts\FilamentUser;
 use Filament\Models\Contracts\HasTenants;
 use Filament\Panel;
 use Illuminate\Foundation\Auth\User as Authenticatable;
+use Illuminate\Notifications\Notifiable;
 use Packstub\Teams\Concerns\HasTeamMemberships;
 use Spatie\Permission\Traits\HasRoles;
 
@@ -13,6 +14,7 @@ class User extends Authenticatable implements FilamentUser, HasTenants
 {
     use HasRoles;
     use HasTeamMemberships;
+    use Notifiable;
 
     protected $guarded = [];
 

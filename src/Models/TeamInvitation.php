@@ -26,6 +26,9 @@ class TeamInvitation extends Model
     protected function casts(): array
     {
         return [
+            'max_uses' => 'integer',
+            'uses' => 'integer',
+            'last_sent_at' => 'datetime',
             'expires_at' => 'datetime',
             'accepted_at' => 'datetime',
         ];
@@ -45,7 +48,7 @@ class TeamInvitation extends Model
     {
         static::creating(function (self $invitation): void {
             $invitation->token ??= static::generateToken();
-            $invitation->email = Str::lower(trim($invitation->email));
+            $invitation->email = $invitation->email === null ? null : Str::lower(trim($invitation->email));
         });
     }
 
@@ -67,12 +70,46 @@ class TeamInvitation extends Model
     public function scopePending(Builder $query): Builder
     {
         return $query->whereNull('accepted_at')
-            ->where(fn (Builder $q) => $q->whereNull('expires_at')->orWhere('expires_at', '>', now()));
+            ->where(fn (Builder $q) => $q->whereNull('expires_at')->orWhere('expires_at', '>', now()))
+            ->where(fn (Builder $q) => $q->whereNull('max_uses')->orWhereColumn('uses', '<', 'max_uses'));
+    }
+
+    public function scopeEmails(Builder $query): Builder
+    {
+        return $query->whereNotNull('email');
+    }
+
+    public function scopeLinks(Builder $query): Builder
+    {
+        return $query->whereNull('email');
     }
 
     public function isPending(): bool
     {
-        return $this->accepted_at === null && ! $this->isExpired();
+        return $this->accepted_at === null && ! $this->isExpired() && ! $this->isExhausted();
+    }
+
+    public function isLink(): bool
+    {
+        return $this->email === null;
+    }
+
+    public function isExhausted(): bool
+    {
+        return $this->max_uses !== null && $this->uses >= $this->max_uses;
+    }
+
+    public function canResendAt(): ?Carbon
+    {
+        $minutes = (int) config('packstub-teams.invitations.resend_cooldown_minutes', 0);
+
+        if ($minutes <= 0 || $this->last_sent_at === null) {
+            return null;
+        }
+
+        $at = $this->last_sent_at->copy()->addMinutes($minutes);
+
+        return $at->isFuture() ? $at : null;
     }
 
     public function isExpired(): bool

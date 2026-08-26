@@ -44,6 +44,8 @@ class TeamsPlugin implements Plugin
     /** @var array<string, mixed> */
     protected array $configOverrides = [];
 
+    protected ?Closure $personalTeamUsing = null;
+
     public static function make(): static
     {
         return app(static::class);
@@ -161,6 +163,43 @@ class TeamsPlugin implements Plugin
     }
 
     /**
+     * Define the roles for this panel, Jetstream style:
+     * ['admin' => ['label' => 'Admin', 'description' => '…', 'permissions' => ['create', 'update']], …]
+     *
+     * @param  array<string, string|array<string, mixed>>  $roles
+     */
+    public function roles(array $roles, ?string $default = null, ?array $managers = null): static
+    {
+        $this->configOverrides['roles.roles'] = $roles;
+
+        if ($default !== null) {
+            $this->configOverrides['roles.default'] = $default;
+        }
+
+        if ($managers !== null) {
+            $this->configOverrides['roles.managers'] = $managers;
+        }
+
+        return $this;
+    }
+
+    /**
+     * Create a team for every new registration:
+     * fn (Model $user): Model — return the saved team; the user becomes its owner.
+     */
+    public function personalTeams(?Closure $factory, ?string $name = null): static
+    {
+        $this->personalTeamUsing = $factory;
+        $this->configOverrides['personal_teams.enabled'] = $factory !== null;
+
+        if ($name !== null) {
+            $this->configOverrides['personal_teams.name'] = $name;
+        }
+
+        return $this;
+    }
+
+    /**
      * Preset for packstub/filament-tenancy: reuse its Tenant model, the
      * `tenant_user` pivot (`tenant_id` / `role`) and its `users()` /
      * `tenants()` relations, and keep invitations on the central connection.
@@ -251,6 +290,10 @@ class TeamsPlugin implements Plugin
 
         if ($this->canInviteUsing) {
             $teams->canInviteUsing($this->canInviteUsing);
+        }
+
+        if ($this->personalTeamUsing) {
+            $teams->personalTeamUsing($this->personalTeamUsing);
         }
 
         $panel->pages(array_values(array_filter([$this->membersPage, $this->invitationsPage])));

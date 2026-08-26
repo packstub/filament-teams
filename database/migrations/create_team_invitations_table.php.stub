@@ -23,10 +23,14 @@ return new class extends Migration
                 $table->foreign('team_id')->references($team->getKeyName())->on($team->getTable())->cascadeOnDelete();
             }
 
-            $table->string('email');
+            // Null e-mail = shareable link.
+            $table->string('email')->nullable();
             $table->string('role');
             $table->string('token', 64)->unique();
             $table->foreignIdFor($userModel, 'invited_by')->nullable()->constrained((new $userModel)->getTable())->nullOnDelete();
+            $table->unsignedInteger('max_uses')->nullable();
+            $table->unsignedInteger('uses')->default(0);
+            $table->timestamp('last_sent_at')->nullable();
             $table->timestamp('expires_at')->nullable();
             $table->timestamp('accepted_at')->nullable();
             $table->timestamps();

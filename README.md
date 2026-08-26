@@ -2,8 +2,10 @@
 
 Teams, invitations and seat limits for Filament v5 panels with tenancy — with tenant-scoped roles that plug straight into **Filament Shield** / Spatie Permission when they're installed.
 
-- **Members page** — invite by e-mail, change roles, remove, transfer ownership, leave.
-- **Invitations** — signed links with expiry, resend, revoke, copy-link; guests are sent through login or registration and land in the team.
+- **Members page** — invite by e-mail (several at once), change roles, remove, transfer ownership, leave.
+- **Invitations** — e-mail invitations with expiry, resend cooldown, revoke, copy-link, in-app notification for existing users, **shareable links** with a use limit; guests are sent through login or registration (invited e-mail prefilled and locked) and land in the team; pending invitations are accepted automatically on login/registration.
+- **Permissions** — roles carry permissions (`hasTeamPermission()`, `@teamcan`, `team.can:` middleware) from config, or from Spatie/Shield.
+- **Personal teams** — optional team per new registration.
 - **Seats** — a limit per team (from config, a plan, anything), with pending invitations counted.
 - **Ownership rules** — a reserved owner role that is never assignable by hand and never removable while it is the last one.
 - **Roles, your way** — a config list on the pivot, or Spatie Permission *teams* roles (the ones Shield manages) synced per tenant automatically.
@@ -90,6 +92,32 @@ TeamsPlugin::make()
     ->useFilamentTenancy();   // preset for packstub/filament-tenancy
 ```
 
+## Roles and permissions
+
+Roles are defined in config (or per panel) with a label, an optional description and the permissions they carry — owners hold everything, `*` grants all:
+
+```php
+TeamsPlugin::make()->roles([
+    'owner'  => ['label' => 'Owner', 'permissions' => ['*']],
+    'admin'  => ['label' => 'Admin', 'description' => 'Manages members and settings.', 'permissions' => ['create', 'read', 'update', 'delete']],
+    'member' => ['label' => 'Member', 'permissions' => ['read']],
+], default: 'member', managers: ['admin']);
+```
+
+Check them anywhere:
+
+```php
+$user->hasTeamPermission($team, 'update');      // HasTeamRoles / HasTeamMemberships
+Teams::userCan($user, $team, 'update');
+Route::get(...)->middleware('team.can:update');  // 403 otherwise, against the current Filament tenant
+```
+
+```blade
+@teamcan('update') <x-filament::button>Edit</x-filament::button> @endteamcan
+```
+
+With the Spatie provider the same calls are answered by Spatie Permission / Shield for the current team.
+
 ## Roles with Filament Shield
 
 Install [Filament Shield](https://github.com/bezhanSalleh/filament-shield) and enable Spatie Permission's `teams` feature (`config/permission.php` → `'teams' => true`, run the `add_teams_fields` migration, pass `scopeToTenant()` to Shield's plugin). That's all: the plugin detects `permission.teams`, switches to `SpatieRoleProvider`, and
@@ -133,15 +161,31 @@ Teams::canManage($user, $team);
 Teams::seatLimit($team);
 ```
 
-Every method throws a `Packstub\Teams\Exceptions\TeamsException` subclass on a rule violation (`SeatLimitReached`, `LastOwnerException`, `InvalidInvitation`, `InvalidRole`, `NotAMember`, `AlreadyAMember`); the Filament pages turn them into notifications.
+Also: `inviteMany()`, `createInviteLink()`, `acceptAllFor($user)`, `pendingInvitationFromSession()`, `pruneInvitations()`, `userCan()`, `roleDescription()`, `createPersonalTeam()`.
+
+Every method throws a `Packstub\Teams\Exceptions\TeamsException` subclass on a rule violation (`SeatLimitReached`, `LastOwnerException`, `InvalidInvitation`, `InvalidRole`, `NotAMember`, `AlreadyAMember`, `ResendTooSoon`); the Filament pages turn them into notifications.
 
 Events: `MemberInvited`, `InvitationAccepted`, `MemberAdded`, `MemberRoleChanged`, `MemberRemoved`, `OwnershipTransferred`.
 
 ## Invitation flow
 
-1. A manager invites an e-mail address with a role. A `TeamInvitation` is created (one pending per e-mail per team, re-inviting refreshes it) and `TeamInvitationMail` goes out.
-2. The link hits `/{panel}/invitations/{token}`. Guests are redirected to the panel's login — or its registration page — with the intended URL kept; the invited e-mail is stored in the session under `Teams::SESSION_INVITATION` so you can prefill a registration form.
-3. Signed in, the user joins with the invited role and lands on the team's dashboard. With `require_email_match` on (default) only the invited address may accept.
+1. A manager invites one or more e-mail addresses with a role (`Teams::invite()` / `inviteMany()`, up to `invitations.max_batch` at once). A `TeamInvitation` is created per address (one pending per e-mail per team, re-inviting refreshes it), `TeamInvitationMail` goes out, and invitees who already have an account also get a database notification in Filament's tray.
+2. The link hits `/{panel}/invitations/{token}`. Guests are redirected to the panel's login — or its registration page — with the intended URL kept. Use `Packstub\Teams\Filament\Pages\Auth\Register` as the panel's registration page to prefill and lock the invited e-mail (`->registration(Register::class)`).
+3. As soon as they log in or register, the invitation from the link is accepted (`AcceptPendingInvitations` listener); the accept route then sends them to the team's dashboard. With `require_email_match` on (default) only the invited address may accept an e-mail invitation. Turn on `invitations.auto_accept_on_login` to also accept every other pending invitation addressed to that e-mail.
+4. **Shareable links** (`Teams::createInviteLink($team, $role, maxUses: 10, expiresAt: …)` or the "Create link" action) let anyone who signs in join with the chosen role until the link expires or its uses run out. Links never hold a seat.
+
+Resending waits `invitations.resend_cooldown_minutes` between sends. Schedule `php artisan teams:prune-invitations` to delete expired invitations and accepted ones older than `invitations.prune_accepted_after_days`.
+
+## Personal teams
+
+Give every new account a team of its own — skipped for users who register through an invitation link:
+
+```php
+TeamsPlugin::make()->personalTeams(
+    fn (User $user): Team => Team::create(['name' => Teams::personalTeamName($user), 'slug' => Str::slug($user->name).'-'.Str::random(4)]),
+    name: ":name's Team",
+);
+```
 
 ## Using it with Filament Tenancy
 

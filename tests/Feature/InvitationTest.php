@@ -17,6 +17,7 @@ use function Pest\Laravel\get;
 
 beforeEach(function () {
     Mail::fake();
+    config()->set('packstub-teams.invitations.resend_cooldown_minutes', 0);
     $this->owner = createUser();
     $this->team = createTeam($this->owner);
 });

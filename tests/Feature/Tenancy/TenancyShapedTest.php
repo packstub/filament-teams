@@ -24,6 +24,7 @@ function tenantUser(string $name = 'Someone'): TenantLikeUser
 
 beforeEach(function () {
     Mail::fake();
+    config()->set('packstub-teams.invitations.resend_cooldown_minutes', 0);
     $this->owner = tenantUser('Olivia Owner');
     $this->tenant = TenantLikeTeam::create(['name' => 'Acme Workspace', 'slug' => 'acme']);
     $this->tenant->users()->attach($this->owner, ['role' => 'owner']);

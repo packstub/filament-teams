@@ -49,7 +49,9 @@ class SpatieRoleProvider implements RoleProvider
 
     public function roles(Model $team): array
     {
-        $labels = (array) config('packstub-teams.roles.roles', []);
+        $labels = collect((array) config('packstub-teams.roles.roles', []))
+            ->map(fn (string|array $role, string $name) => is_array($role) ? ($role['label'] ?? Str::headline($name)) : $role)
+            ->all();
         $owner = config('packstub-teams.roles.owner', 'owner');
 
         $roles = $this->roleQuery($team)
@@ -80,6 +82,30 @@ class SpatieRoleProvider implements RoleProvider
             $user->unsetRelation('roles');
             $user->syncRoles([]);
         });
+    }
+
+    /**
+     * Spatie answers: the member's roles for this team carry the permissions.
+     */
+    public function can(Model $user, Model $team, string $role, string $permission): bool
+    {
+        $result = false;
+
+        $this->withinTeam($team, function () use ($user, $permission, &$result): void {
+            $user->unsetRelation('roles')->unsetRelation('permissions');
+            $result = method_exists($user, 'hasPermissionTo')
+                ? $user->checkPermissionTo($permission, $this->guard())
+                : $user->can($permission);
+        });
+
+        return $result;
+    }
+
+    public function describe(Model $team, string $role): ?string
+    {
+        $definition = config("packstub-teams.roles.roles.{$role}");
+
+        return is_array($definition) ? ($definition['description'] ?? null) : null;
     }
 
     /**

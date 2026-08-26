@@ -8,6 +8,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Packstub\Teams\Exceptions\AlreadyAMember;
 use Packstub\Teams\Exceptions\TeamsException;
+use Packstub\Teams\Models\TeamInvitation;
 use Packstub\Teams\Teams;
 
 /**
@@ -21,6 +22,18 @@ class AcceptInvitationController
     {
         $panel = Filament::getCurrentOrDefaultPanel();
         $invitation = $teams->findPendingInvitation($token);
+
+        // A login/registration listener already accepted this very
+        // invitation: greet and go to the team.
+        if ($request->session()->pull(Teams::SESSION_JOINED) === $token && Filament::auth()->check()) {
+            $joined = TeamInvitation::query()->where('token', $token)->first();
+
+            if ($joined && $teams->isMember($joined->team, Filament::auth()->user())) {
+                $this->notify(__('packstub-teams::teams.notifications.joined', ['team' => Filament::getTenantName($joined->team)]));
+
+                return redirect()->to($panel->getUrl($joined->team));
+            }
+        }
 
         if (! $invitation) {
             $this->notify(__('packstub-teams::teams.notifications.invitation_invalid'), danger: true);

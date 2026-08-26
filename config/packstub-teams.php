@@ -63,6 +63,11 @@ return [
     | `managers` lists the roles allowed to invite, change roles and remove
     | members (owners always can).
     |
+    | Each role is a label, or an array with `label`, `description` and
+    | `permissions` (Jetstream style). Owners implicitly hold every
+    | permission; `*` grants all. With the Spatie provider, permissions are
+    | answered by Spatie / Shield instead.
+    |
     */
 
     'roles' => [
@@ -71,9 +76,9 @@ return [
         'default' => 'member',
         'managers' => ['admin'],
         'roles' => [
-            'owner' => 'Owner',
-            'admin' => 'Admin',
-            'member' => 'Member',
+            'owner' => ['label' => 'Owner', 'permissions' => ['*']],
+            'admin' => ['label' => 'Admin', 'description' => 'Manages members and settings.', 'permissions' => ['create', 'read', 'update', 'delete']],
+            'member' => ['label' => 'Member', 'description' => 'Works inside the team.', 'permissions' => ['read']],
         ],
     ],
 
@@ -93,9 +98,45 @@ return [
         // Count pending invitations toward the seat limit.
         'count_pending_toward_seats' => true,
 
+        // Minutes to wait before the same invitation can be re-sent.
+        'resend_cooldown_minutes' => 5,
+
+        // How many addresses one "Invite" action may submit.
+        'max_batch' => 10,
+
+        // Shareable links (no e-mail): allow creating them from the UI.
+        'links' => true,
+
+        // Existing users also get an in-app (database) notification.
+        'notify_existing_users' => true,
+
+        // On login/registration, accept every pending invitation addressed
+        // to the user's e-mail — not just the one whose link they followed.
+        'auto_accept_on_login' => false,
+
+        // `teams:prune-invitations` deletes accepted invitations older than
+        // this many days (expired ones are always deleted).
+        'prune_accepted_after_days' => 30,
+
         'mail' => [
             'queue' => false,
         ],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Personal teams
+    |--------------------------------------------------------------------------
+    |
+    | Create a team for every newly registered user (unless they registered
+    | through an invitation link). Provide the factory with
+    | `TeamsPlugin::make()->personalTeams(fn (Model $user): Model => ...)`.
+    |
+    */
+
+    'personal_teams' => [
+        'enabled' => false,
+        'name' => ":name's Team",
     ],
 
     /*
