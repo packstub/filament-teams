@@ -1,5 +1,11 @@
 # Filament Teams
 
+<div class="filament-hidden">
+
+![Filament Teams — invite the team, roles per tenant](https://packstub.dev/images/docs/filament-teams/banner.jpg)
+
+</div>
+
 Teams, invitations and seat limits for Filament v5 panels with tenancy — with tenant-scoped roles that plug straight into **Filament Shield** / Spatie Permission when they're installed.
 
 - **Members page** — invite by e-mail (several at once), change roles, remove, transfer ownership, leave.

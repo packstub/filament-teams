@@ -1,227 +1,170 @@
-# Filament Teams
+# Packstub Teams
 
-Teams, invitations and seat limits for Filament v5 panels with tenancy — with tenant-scoped roles that plug straight into **Filament Shield** / Spatie Permission when they're installed.
+**Invite the team. Roles per tenant.**
 
-- **Members page** — invite by e-mail (several at once), change roles, remove, transfer ownership, leave.
-- **Invitations** — e-mail invitations with expiry, resend cooldown, revoke, copy-link, in-app notification for existing users, **shareable links** with a use limit; guests are sent through login or registration (invited e-mail prefilled and locked) and land in the team; pending invitations are accepted automatically on login/registration.
-- **Permissions** — roles carry permissions (`hasTeamPermission()`, `@teamcan`, `team.can:` middleware) from config, or from Spatie/Shield.
-- **Personal teams** — optional team per new registration.
-- **Seats** — a limit per team (from config, a plan, anything), with pending invitations counted.
-- **Ownership rules** — a reserved owner role that is never assignable by hand and never removable while it is the last one.
-- **Roles, your way** — a config list on the pivot, or Spatie Permission *teams* roles (the ones Shield manages) synced per tenant automatically.
-- Works with Filament's native tenancy and with [Filament Tenancy](https://packstub.dev/plugins/filament-tenancy) (database-per-tenant) — the pivot table and keys are configurable.
+Packstub Teams is a premium plugin that gives your **Filament v5** tenants everything a SaaS needs around its members: a Members page, e-mail and shareable-link invitations that walk guests through login or registration and drop them into the right team with the right role, seat limits driven by the plan, ownership rules, and roles that carry permissions — from a simple config list or from **Filament Shield**, per team. Filament's built-in tenancy and [Filament Tenancy](https://packstub.dev/plugins/filament-tenancy) (database per tenant) are both supported out of the box.
+
+### Full documentation
+
+Every guide — installation, members, invitations, roles and permissions, Shield, Filament Tenancy, configuration, testing — lives at **[packstub.dev/docs/filament-teams](README.md)**.
+
+## Features
+
+- **Members page** — every member sees the team; managers invite, change roles, remove members; owners transfer ownership; anyone can leave
+- **E-mail invitations** — several addresses at once, expiry, resend cooldown, revoke, copy-link, and an in-app notification for invitees who already have an account
+- **Shareable links** — join-with-this-link invitations with a role, an expiry and a use limit
+- **Frictionless acceptance** — guests go through login or registration (invited e-mail prefilled and locked) and join the moment they sign in; pending invitations can be accepted automatically on login
+- **Seat limits** — from config or from the plan, with pending invitations counted; the invite button disables when the team is full
+- **Ownership rules** — a reserved owner role that is never assignable by hand and never removable while it is the last one
+- **Roles with permissions** — Jetstream-style role definitions, `hasTeamPermission()`, a `team.can:` middleware and a `@teamcan` Blade directive
+- **Filament Shield integration** — with Spatie Permission's teams feature on, the plugin lists Shield's roles, syncs a member's Spatie role per team and points `$user->can()` at the current tenant on every request
+- **Personal teams** — optionally create a team for every new registration
+- **Filament Tenancy preset** — `useFilamentTenancy()` reuses the `tenant_user` pivot, string tenant ids and the central connection
+- **Works without traits** — every lookup is on the `Teams` service and builds relations from config, so models you don't control fit too
+- **Events, exceptions, translations** — `MemberInvited`, `InvitationAccepted`, `MemberAdded`, `MemberRoleChanged`, `MemberRemoved`, `OwnershipTransferred`; typed `TeamsException`s; publishable views and translations
+- **Housekeeping** — `teams:prune-invitations` for expired and stale invitations
+
+## Screenshots
+
+**Members** — roles per member, seats in the subheading, manager actions per row
+
+<img src="https://packstub.dev/images/docs/filament-teams/members.png" alt="Members page with roles, seats and per-row actions">
+
+**Invite** — several addresses at once with a role
+
+<img src="https://packstub.dev/images/docs/filament-teams/invite-members.png" alt="Invite member modal with a tags input for addresses and a role select">
+
+**Invitations** — pending e-mails and shareable links, resend and revoke
+
+<img src="https://packstub.dev/images/docs/filament-teams/invitations.png" alt="Invitations page listing a pending invitation and a shareable link">
+
+**Registration through an invitation** — the invited e-mail is prefilled and locked
+
+<img src="https://packstub.dev/images/docs/filament-teams/register-invited.png" alt="Registration page with the invited e-mail prefilled and read-only">
+
+**Shield roles per team** — the same user is an owner in one team and a viewer in another
+
+<img src="https://packstub.dev/images/docs/filament-teams/shield-roles.png" alt="Filament Shield's Roles resource scoped to the current team">
 
 ## Installation
 
+### Requirements
+
+| Package | Filament | Laravel | PHP |
+|---|---|---|---|
+| `1.x` | `^5.0` | `^12.0` / `^13.0` | `8.3+` |
+
+Optional: `spatie/laravel-permission` + `bezhansalleh/filament-shield` for Shield-managed roles; `packstub/filament-tenancy` for database-per-tenant apps.
+
+### Purchasing a license
+
+Licenses are sold at **[packstub.dev/plugins/filament-teams](https://packstub.dev/plugins/filament-teams)**. After purchase, sign in to your Packstub dashboard and create an access token on the **Install Guide** page — it shows the commands below with your token filled in.
+
+### Installing with Composer
+
 ```bash
+composer config repositories.packstub-filament-teams composer https://packstub.dev/composer/filament-teams
+composer config --auth http-basic.packstub.dev pkg_xxxxxxxxxxxxxxxx your-token-secret
 composer require packstub/filament-teams
 php artisan packstub-teams:install
 ```
 
-Put the traits on your models:
+Full walkthrough: **[Installation →](installation.md)**
+
+## Getting started
+
+Two traits and one plugin call:
 
 ```php
-use Filament\Models\Contracts\HasTenants;
-use Packstub\Teams\Concerns\HasTeamMemberships;
-
+// app/Models/User.php
 class User extends Authenticatable implements FilamentUser, HasTenants
 {
-    use HasTeamMemberships; // joinedTeams(), teamRole(), hasTeamRole(), ownsTeam(), getTenants(), canAccessTenant()
+    use HasTeamMemberships;   // joinedTeams(), teamRole(), hasTeamPermission(), getTenants(), canAccessTenant()
 }
-```
 
-```php
-use Packstub\Teams\Concerns\HasTeamMembers;
-
+// app/Models/Team.php
 class Team extends Model
 {
-    use HasTeamMembers; // members(), owners(), invitations(), roleOf(), seatsUsed(), hasAvailableSeats()
+    use HasTeamMembers;       // members(), owners(), invitations(), seatsUsed()
 }
-```
 
-Register the plugin on the tenant-aware panel:
-
-```php
-use Packstub\Teams\TeamsPlugin;
-
+// app/Providers/Filament/AppPanelProvider.php
 $panel
     ->tenant(Team::class, slugAttribute: 'slug')
-    ->tenantRegistration(RegisterTeam::class)
-    ->plugin(TeamsPlugin::make());
+    ->registration(\Packstub\Teams\Filament\Pages\Auth\Register::class)
+    ->plugin(TeamsPlugin::make()->seatLimit(fn (Team $team) => $team->plan?->seats));
 ```
 
-When a team is created, add its first owner:
-
-```php
-use Packstub\Teams\Facades\Teams;
-
-$team = Team::create($data);
-Teams::addMember($team, auth()->user(), Teams::ownerRole());
-```
-
-## Configuration
-
-`config/packstub-teams.php`:
-
-| Key | Purpose |
-| --- | --- |
-| `team_model` | the tenant model |
-| `membership.table` / `team_foreign_key` / `user_foreign_key` / `role_column` | the pivot — set `tenant_user` / `tenant_id` to reuse Filament Tenancy's |
-| `roles.provider` | `null` (auto), `simple`, `spatie`, or a `RoleProvider` class |
-| `roles.owner`, `roles.default`, `roles.managers`, `roles.roles` | the reserved owner role, the role new invites get, which roles may manage members, and the config role list |
-| `membership.team_relationship` / `user_relationship` | relation names on your models (`members` / `joinedTeams`; Tenancy: `users` / `tenants`) |
-| `connection` | database connection for the pivot + invitations (central DB in database-per-tenant apps) |
-| `invitations.expire_after_days`, `require_email_match`, `count_pending_toward_seats`, `mail.queue` | invitation behaviour |
-| `seat_limit` | global default (null = unlimited) |
-
-Per-panel options on the plugin:
-
-```php
-TeamsPlugin::make()
-    ->seatLimit(fn (Team $team): ?int => $team->plan?->seats)     // null = unlimited
-    ->canManageUsing(fn (User $user, Team $team): bool => ...)   // roles/removal
-    ->canInviteUsing(fn (User $user, Team $team): bool => ...)   // defaults to canManage
-    ->roleProvider('spatie')                                     // or 'simple' / a class
-    ->navigationGroup('Team')
-    ->navigationSort(90)
-    ->tenantMenuItem()        // "Members" in the tenant switcher menu
-    ->membersPage(MyMembers::class)      // or null to skip
-    ->invitationsPage(null)
-    ->acceptRoute()           // /{panel}/invitations/{token}
-    ->config(['seat_limit' => 10])       // any packstub-teams.* key, per panel
-    ->useFilamentTenancy();   // preset for packstub/filament-tenancy
-```
+Make the creator of a team its owner — `Teams::addMember($team, $user, Teams::ownerRole())` — and the Members and Invitations pages are live.
 
 ## Roles and permissions
-
-Roles are defined in config (or per panel) with a label, an optional description and the permissions they carry — owners hold everything, `*` grants all:
 
 ```php
 TeamsPlugin::make()->roles([
     'owner'  => ['label' => 'Owner', 'permissions' => ['*']],
-    'admin'  => ['label' => 'Admin', 'description' => 'Manages members and settings.', 'permissions' => ['create', 'read', 'update', 'delete']],
-    'member' => ['label' => 'Member', 'permissions' => ['read']],
-], default: 'member', managers: ['admin']);
-```
+    'admin'  => ['label' => 'Admin', 'permissions' => ['create', 'read', 'update', 'delete']],
+    'editor' => ['label' => 'Editor', 'permissions' => ['create', 'read', 'update']],
+    'viewer' => 'Viewer',
+], default: 'viewer', managers: ['admin']);
 
-Check them anywhere:
-
-```php
-$user->hasTeamPermission($team, 'update');      // HasTeamRoles / HasTeamMemberships
-Teams::userCan($user, $team, 'update');
-Route::get(...)->middleware('team.can:update');  // 403 otherwise, against the current Filament tenant
+$user->hasTeamPermission($team, 'update');
+Route::get('/reports', ...)->middleware('team.can:reports.view');
 ```
 
 ```blade
 @teamcan('update') <x-filament::button>Edit</x-filament::button> @endteamcan
 ```
 
-With the Spatie provider the same calls are answered by Spatie Permission / Shield for the current team.
+Using **Filament Shield**? Enable Spatie's teams feature and the same calls are answered by Shield's roles for the current team — nothing else to wire. **[Filament Shield →](shield.md)**
 
-## Roles with Filament Shield
-
-Install [Filament Shield](https://github.com/bezhanSalleh/filament-shield) and enable Spatie Permission's `teams` feature (`config/permission.php` → `'teams' => true`, run the `add_teams_fields` migration, pass `scopeToTenant()` to Shield's plugin). That's all: the plugin detects `permission.teams`, switches to `SpatieRoleProvider`, and
-
-- the Members page offers Shield's roles (global ones plus roles created inside the current team),
-- assigning a role syncs the member's Spatie role *for that team*,
-- a `SetPermissionsTeam` tenant middleware points Spatie at the current tenant on every request, so `$user->can()` and Shield's policies answer for the team you're in.
-
-**Global vs. per-team roles.** Shield's Role resource is tenant-owned, so during a panel request Filament scopes the `Role` model to the current team and global roles (`team_id` null) are invisible to `$user->can()`. Treat global roles as templates and give each new team its own copies:
+## Invitations
 
 ```php
-// in your RegisterTenant page / team factory
-Teams::roleProvider()->cloneGlobalRolesToTeam($team);
-Teams::addMember($team, $user, Teams::ownerRole());
+Teams::invite($team, 'jane@acme.test', 'editor', inviter: $user);
+Teams::inviteMany($team, ['jane@acme.test', 'sam@acme.test'], 'viewer', $user);
+Teams::createInviteLink($team, 'viewer', maxUses: 10, expiresAt: now()->addWeek());
 ```
 
-Your `Role` model needs a `team()` relation for Filament's scoping (`belongsTo(Team::class, 'team_id')`). When the configured default role doesn't exist among a team's roles, invites fall back to the first assignable one (`Teams::defaultRoleFor($team)`).
+Links land on `/{panel}/invitations/{token}`; guests are sent through login or registration and join as soon as they sign in. **[Invitations →](invitations.md)**
 
-Prefer a fixed list instead? Set `roles.provider` to `simple` — roles live on the pivot only.
-
-Write your own provider by implementing `Packstub\Teams\Roles\RoleProvider` (`roles()`, `assigned()`, `removed()`).
-
-## The `Teams` service
-
-```php
-use Packstub\Teams\Facades\Teams;
-
-Teams::invite($team, 'jane@example.com', 'editor', inviter: $user); // TeamInvitation (mail sent)
-Teams::resend($invitation);
-Teams::revoke($invitation);
-Teams::accept($invitation, $user);
-
-Teams::addMember($team, $user, 'member');
-Teams::changeRole($team, $user, 'admin');
-Teams::removeMember($team, $user);
-Teams::transferOwnership($team, from: $owner, to: $user);
-
-Teams::roles($team);           // ['owner' => 'Owner', 'admin' => 'Admin', ...]
-Teams::assignableRoles($team); // without owner
-Teams::canManage($user, $team);
-Teams::seatLimit($team);
-```
-
-Also: `inviteMany()`, `createInviteLink()`, `acceptAllFor($user)`, `pendingInvitationFromSession()`, `pruneInvitations()`, `userCan()`, `roleDescription()`, `createPersonalTeam()`.
-
-Every method throws a `Packstub\Teams\Exceptions\TeamsException` subclass on a rule violation (`SeatLimitReached`, `LastOwnerException`, `InvalidInvitation`, `InvalidRole`, `NotAMember`, `AlreadyAMember`, `ResendTooSoon`); the Filament pages turn them into notifications.
-
-Events: `MemberInvited`, `InvitationAccepted`, `MemberAdded`, `MemberRoleChanged`, `MemberRemoved`, `OwnershipTransferred`.
-
-## Invitation flow
-
-1. A manager invites one or more e-mail addresses with a role (`Teams::invite()` / `inviteMany()`, up to `invitations.max_batch` at once). A `TeamInvitation` is created per address (one pending per e-mail per team, re-inviting refreshes it), `TeamInvitationMail` goes out, and invitees who already have an account also get a database notification in Filament's tray.
-2. The link hits `/{panel}/invitations/{token}`. Guests are redirected to the panel's login — or its registration page — with the intended URL kept. Use `Packstub\Teams\Filament\Pages\Auth\Register` as the panel's registration page to prefill and lock the invited e-mail (`->registration(Register::class)`).
-3. As soon as they log in or register, the invitation from the link is accepted (`AcceptPendingInvitations` listener); the accept route then sends them to the team's dashboard. With `require_email_match` on (default) only the invited address may accept an e-mail invitation. Turn on `invitations.auto_accept_on_login` to also accept every other pending invitation addressed to that e-mail.
-4. **Shareable links** (`Teams::createInviteLink($team, $role, maxUses: 10, expiresAt: …)` or the "Create link" action) let anyone who signs in join with the chosen role until the link expires or its uses run out. Links never hold a seat.
-
-Resending waits `invitations.resend_cooldown_minutes` between sends. Schedule `php artisan teams:prune-invitations` to delete expired invitations and accepted ones older than `invitations.prune_accepted_after_days`.
-
-## Personal teams
-
-Give every new account a team of its own — skipped for users who register through an invitation link:
-
-```php
-TeamsPlugin::make()->personalTeams(
-    fn (User $user): Team => Team::create(['name' => Teams::personalTeamName($user), 'slug' => Str::slug($user->name).'-'.Str::random(4)]),
-    name: ":name's Team",
-);
-```
-
-## Using it with Filament Tenancy
-
-`packstub/filament-tenancy` already keeps a `tenant_user` pivot (`tenant_id`, `user_id`, `role`) with an `owner` role, string tenant ids and `users()` / `tenants()` relations. One call wires everything and keeps invitations on the central connection:
+## Filament Tenancy
 
 ```php
 $panel->plugins([
-    TenancyPlugin::make()->/* … */,
-    TeamsPlugin::make()->useFilamentTenancy(),   // optional: ->useFilamentTenancy('central')
+    TenancyPlugin::make(),
+    TeamsPlugin::make()->useFilamentTenancy(),   // tenant_user pivot, string ids, central connection
 ]);
 ```
 
-Then publish and run only the invitations migration (`create_team_invitations_table`) — the pivot already exists — and add `HasTeamRoles` to your user next to `HasPackstubTenants`:
-
-```php
-use Packstub\Teams\Concerns\HasTeamRoles;
-use Packstub\Tenancy\Concerns\HasPackstubTenants;
-
-class User extends Authenticatable implements FilamentUser, HasDefaultTenant, HasTenants
-{
-    use HasPackstubTenants, HasTeamRoles; // teamRole(), hasTeamRole(), ownsTeam(), canManageTeam()
-}
-```
-
-Nothing on the `Tenant` model changes: the service reads the tenant's own `users()` relation. The accept link lives on the central host (`/{panel}/invitations/{token}`) and sends the new member to their tenant host afterwards — subdomains share the central session, custom domains go through Tenancy's handoff.
-
-### Without the traits
-
-The traits are conveniences. Every lookup is also available on the service for models you don't control — `Teams::membersOf($team)`, `teamsOf($user)`, `invitationsOf($team)`, `ownersOf($team)`, `isMember()`, `roleOf()`, `seatsUsed()`, `hasAvailableSeats()` — building the relations from `membership.*` config (`team_relationship` / `user_relationship` name the model relations to prefer when they exist). Team keys may be integers, UUIDs/ULIDs or plain strings; set `connection` to keep the pivot and invitations on a central database.
+**[Using it with Filament Tenancy →](filament-tenancy.md)**
 
 ## Testing
 
-```bash
-composer test
-```
+The package ships 50+ Pest tests — membership rules, the invitation HTTP flow, Livewire page tests, the Spatie/Shield provider, string-keyed tenants — and its demo app runs Playwright end-to-end tests of the whole invite → register → join flow. Your own tests go through the `Teams` service, no HTTP needed. **[Testing →](testing.md)**
+
+## Documentation
+
+| Guide | What's inside |
+|---|---|
+| [Installation](installation.md) | Registry auth, installer, models, panel wiring |
+| [Members](members.md) | Roles, seats, ownership, who may manage |
+| [Invitations](invitations.md) | E-mail and link invitations, acceptance flow, housekeeping |
+| [Roles and permissions](roles-and-permissions.md) | Role definitions, checks, providers |
+| [Filament Shield](shield.md) | Spatie teams, per-team roles, template roles |
+| [Filament Tenancy](filament-tenancy.md) | The database-per-tenant preset |
+| [Configuration](configuration.md) | Every config key, the plugin API, the service |
+| [Testing](testing.md) | Testing your own membership flows |
+
+## Support
+
+- **Email:** [support@packstub.dev](mailto:support@packstub.dev) — answered within one business day
+- **Issues:** private issue tracker access comes with your license
+- **Security:** report privately to [support@packstub.dev](mailto:support@packstub.dev)
+
+## Changelog
+
+Every release is documented in the package `CHANGELOG.md`. Config keys, the fluent API, and published views are treated as public API and follow semver.
 
 ## License
 
-Commercial — see [LICENSE.md](LICENSE.md). Support: support@packstub.dev.
+Packstub Teams is commercial software. Every license includes the full source code, **12 months of updates and support**, and a **perpetual license** for the versions you received.

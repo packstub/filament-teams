@@ -1,0 +1,82 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Publish to Packstub store
+    runs-on: ubuntu-latest
+
+    env:
+      PACKSTUB_STORE_URL: https://packstub.dev
+      PACKAGE_NAME: packstub/filament-teams
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Derive version and stability from tag
+        id: meta
+        run: |
+          tag="${GITHUB_REF_NAME}"
+          case "$tag" in
+            v*) ;;
+            *) echo "Ref '$tag' is not a v* tag — run this workflow from a release tag." >&2; exit 1 ;;
+          esac
+          version="${tag#v}"
+          case "$version" in
+            *-alpha*) stability=alpha ;;
+            *-beta*)  stability=beta ;;
+            *-rc*|*-RC*) stability=RC ;;
+            *-dev*)   stability=dev ;;
+            *)        stability=stable ;;
+          esac
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "stability=$stability" >> "$GITHUB_OUTPUT"
+          echo "Publishing ${PACKAGE_NAME} ${version} (${stability})"
+
+      - name: Setup PHP 8.4
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.4"
+          extensions: pdo_sqlite
+          coverage: none
+        env:
+          COMPOSER_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install dependencies
+        run: composer install --no-interaction --no-progress --prefer-dist
+
+      - name: Run tests
+        run: vendor/bin/pest
+
+      - name: Build release artifact
+        run: git archive --format=zip --output=artifact.zip HEAD
+
+      - name: Upload release to store
+        run: |
+          http_code=$(curl -sS -o response.json -w "%{http_code}" \
+            -X POST "${PACKSTUB_STORE_URL}/api/publisher/releases" \
+            -H "Authorization: Bearer ${PACKSTUB_PUBLISHER_TOKEN}" \
+            -H "Accept: application/json" \
+            -F "package_name=${PACKAGE_NAME}" \
+            -F "version=${{ steps.meta.outputs.version }}" \
+            -F "stability=${{ steps.meta.outputs.stability }}" \
+            -F "artifact=@artifact.zip;type=application/zip")
+          cat response.json
+          echo
+          if [ "$http_code" -lt 200 ] || [ "$http_code" -ge 300 ]; then
+            echo "Upload failed with HTTP $http_code" >&2
+            exit 1
+          fi
+          echo "Release accepted with HTTP $http_code"
+        env:
+          PACKSTUB_PUBLISHER_TOKEN: ${{ secrets.PACKSTUB_PUBLISHER_TOKEN }}
