@@ -10,7 +10,9 @@ use Packstub\Teams\Models\Membership;
 use Packstub\Teams\Models\TeamInvitation;
 
 /**
- * For the team (tenant) model.
+ * For the team (tenant) model. Optional: every helper delegates to the
+ * Teams service, which can also build the relations from config for models
+ * you don't control (e.g. packstub/filament-tenancy's Tenant).
  */
 trait HasTeamMembers
 {
@@ -41,36 +43,27 @@ trait HasTeamMembers
 
     public function owners(): BelongsToMany
     {
-        return $this->members()->wherePivot(config('packstub-teams.membership.role_column'), Teams::ownerRole());
+        return Teams::ownersOf($this);
     }
 
     public function hasMember(Model $user): bool
     {
-        return $this->members()->whereKey($user->getKey())->exists();
+        return Teams::isMember($this, $user);
     }
 
     public function roleOf(Model $user): ?string
     {
-        $role = $this->members()->whereKey($user->getKey())
-            ->first()?->pivot?->getAttribute(config('packstub-teams.membership.role_column'));
-
-        return $role === null ? null : (string) $role;
+        return Teams::roleOf($this, $user);
     }
 
     public function isOwnedBy(Model $user): bool
     {
-        return $this->roleOf($user) === Teams::ownerRole();
+        return Teams::roleOf($this, $user) === Teams::ownerRole();
     }
 
     public function seatsUsed(): int
     {
-        $seats = $this->members()->count();
-
-        if (config('packstub-teams.invitations.count_pending_toward_seats', true)) {
-            $seats += $this->pendingInvitations()->count();
-        }
-
-        return $seats;
+        return Teams::seatsUsed($this);
     }
 
     public function seatLimit(): ?int
@@ -80,8 +73,6 @@ trait HasTeamMembers
 
     public function hasAvailableSeats(int $needed = 1): bool
     {
-        $limit = $this->seatLimit();
-
-        return $limit === null || $this->seatsUsed() + $needed <= $limit;
+        return Teams::hasAvailableSeats($this, $needed);
     }
 }

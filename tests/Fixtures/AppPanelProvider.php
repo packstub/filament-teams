@@ -26,7 +26,7 @@ class AppPanelProvider extends PanelProvider
             ->id('app')
             ->path('app')
             ->login()
-            ->tenant(Team::class, slugAttribute: 'slug')
+            ->tenant(config('packstub-teams.team_model', Team::class), slugAttribute: 'slug')
             ->pages([Dashboard::class])
             ->middleware([
                 EncryptCookies::class,

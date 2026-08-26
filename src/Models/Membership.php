@@ -17,6 +17,11 @@ class Membership extends Pivot
         return config('packstub-teams.membership.table', 'team_user');
     }
 
+    public function getConnectionName(): ?string
+    {
+        return config('packstub-teams.connection') ?? parent::getConnectionName();
+    }
+
     public function getRole(): string
     {
         return (string) $this->getAttribute(config('packstub-teams.membership.role_column', 'role'));

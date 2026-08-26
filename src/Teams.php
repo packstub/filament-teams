@@ -7,6 +7,8 @@ use Filament\Facades\Filament;
 use Filament\Panel;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
@@ -24,6 +26,7 @@ use Packstub\Teams\Exceptions\LastOwnerException;
 use Packstub\Teams\Exceptions\NotAMember;
 use Packstub\Teams\Exceptions\SeatLimitReached;
 use Packstub\Teams\Mail\TeamInvitationMail;
+use Packstub\Teams\Models\Membership;
 use Packstub\Teams\Models\TeamInvitation;
 use Packstub\Teams\Roles\RoleProvider;
 use Packstub\Teams\Roles\SimpleRoleProvider;
@@ -169,7 +172,7 @@ class Teams
             return (bool) ($this->canManageUsing)($user, $team);
         }
 
-        return in_array($team->roleOf($user), $this->managerRoles(), true);
+        return in_array($this->roleOf($team, $user), $this->managerRoles(), true);
     }
 
     public function canInvite(Model $user, Model $team): bool
@@ -179,6 +182,106 @@ class Teams
         }
 
         return $this->canManage($user, $team);
+    }
+
+    // ------------------------------------------------------------------
+    // Relations & lookups (work with or without the traits)
+    // ------------------------------------------------------------------
+
+    /**
+     * The team's member relation: the model's own (`members()` or the
+     * configured name) when present, otherwise built from config.
+     */
+    public function membersOf(Model $team): BelongsToMany
+    {
+        $config = config('packstub-teams.membership');
+        $name = $config['team_relationship'] ?? 'members';
+
+        if (method_exists($team, $name)) {
+            return $team->{$name}();
+        }
+
+        return $team->belongsToMany(
+            config('auth.providers.users.model'),
+            $config['table'],
+            $config['team_foreign_key'],
+            $config['user_foreign_key'],
+        )
+            ->using(Membership::class)
+            ->withPivot($config['role_column'])
+            ->withTimestamps();
+    }
+
+    /**
+     * The user's team relation (inverse of membersOf()).
+     */
+    public function teamsOf(Model $user): BelongsToMany
+    {
+        $config = config('packstub-teams.membership');
+        $name = $this->userTeamsRelationName();
+
+        if (method_exists($user, $name)) {
+            return $user->{$name}();
+        }
+
+        return $user->belongsToMany(
+            config('packstub-teams.team_model'),
+            $config['table'],
+            $config['user_foreign_key'],
+            $config['team_foreign_key'],
+        )
+            ->using(Membership::class)
+            ->withPivot($config['role_column'])
+            ->withTimestamps();
+    }
+
+    public function userTeamsRelationName(): string
+    {
+        return (string) (config('packstub-teams.membership.user_relationship') ?? 'joinedTeams');
+    }
+
+    public function invitationsOf(Model $team): HasMany
+    {
+        if (method_exists($team, 'invitations')) {
+            return $team->invitations();
+        }
+
+        return $team->hasMany(TeamInvitation::class, 'team_id');
+    }
+
+    public function ownersOf(Model $team): BelongsToMany
+    {
+        return $this->membersOf($team)->wherePivot($this->roleColumn(), $this->ownerRole());
+    }
+
+    public function isMember(Model $team, Model $user): bool
+    {
+        return $this->membersOf($team)->whereKey($user->getKey())->exists();
+    }
+
+    public function roleOf(Model $team, Model $user): ?string
+    {
+        $role = $this->membersOf($team)->whereKey($user->getKey())->first()?->pivot?->getAttribute($this->roleColumn());
+
+        return $role === null ? null : (string) $role;
+    }
+
+    public function seatsUsed(Model $team): int
+    {
+        $seats = $this->membersOf($team)->count();
+
+        if (config('packstub-teams.invitations.count_pending_toward_seats', true)) {
+            $seats += $this->invitationsOf($team)->pending()->count();
+        }
+
+        return $seats;
+    }
+
+    public function hasAvailableSeats(Model $team, int $needed = 1): bool
+    {
+        $limit = $this->seatLimit($team);
+
+        return $limit === null || $this->seatsUsed($team) + $needed <= $limit;
     }
 
     // ------------------------------------------------------------------
@@ -208,20 +311,20 @@ class Teams
 
         $this->assertRole($team, $role, allowOwner: true);
 
-        if ($team->hasMember($user)) {
+        if ($this->isMember($team, $user)) {
             throw AlreadyAMember::make();
         }
 
-        if (! $team->hasAvailableSeats()) {
+        if (! $this->hasAvailableSeats($team)) {
             throw SeatLimitReached::make();
         }
 
         DB::transaction(function () use ($team, $user, $role): void {
-            $team->members()->attach($user->getKey(), [$this->roleColumn() => $role]);
+            $this->membersOf($team)->attach($user->getKey(), [$this->roleColumn() => $role]);
             $this->roleProvider()->assigned($user, $team, $role);
         });
 
-        $team->unsetRelation('members');
+        $this->forgetMembers($team);
 
         MemberAdded::dispatch($team, $user, $role);
     }
@@ -230,7 +333,7 @@ class Teams
     {
         $this->assertRole($team, $role, allowOwner: false);
 
-        $current = $team->roleOf($user) ?? throw NotAMember::make();
+        $current = $this->roleOf($team, $user) ?? throw NotAMember::make();
 
         if ($current === $role) {
             return;
@@ -241,40 +344,40 @@ class Teams
         }
 
         DB::transaction(function () use ($team, $user, $role): void {
-            $team->members()->updateExistingPivot($user->getKey(), [$this->roleColumn() => $role]);
+            $this->membersOf($team)->updateExistingPivot($user->getKey(), [$this->roleColumn() => $role]);
             $this->roleProvider()->assigned($user, $team, $role);
         });
 
-        $team->unsetRelation('members');
+        $this->forgetMembers($team);
 
         MemberRoleChanged::dispatch($team, $user, $current, $role);
     }
 
     public function removeMember(Model $team, Model $user): void
     {
-        $current = $team->roleOf($user) ?? throw NotAMember::make();
+        $current = $this->roleOf($team, $user) ?? throw NotAMember::make();
 
         if ($current === $this->ownerRole()) {
             $this->assertNotLastOwner($team);
         }
 
         DB::transaction(function () use ($team, $user): void {
-            $team->members()->detach($user->getKey());
+            $this->membersOf($team)->detach($user->getKey());
             $this->roleProvider()->removed($user, $team);
         });
 
-        $team->unsetRelation('members');
+        $this->forgetMembers($team);
 
         MemberRemoved::dispatch($team, $user);
     }
 
     public function transferOwnership(Model $team, Model $from, Model $to): void
     {
-        if ($team->roleOf($from) !== $this->ownerRole()) {
+        if ($this->roleOf($team, $from) !== $this->ownerRole()) {
             throw NotAMember::make();
         }
 
-        if (! $team->hasMember($to)) {
+        if (! $this->isMember($team, $to)) {
             throw NotAMember::make();
         }
 
@@ -285,14 +388,14 @@ class Teams
         $demotedRole = $this->demotedOwnerRole($team);
 
         DB::transaction(function () use ($team, $from, $to, $demotedRole): void {
-            $team->members()->updateExistingPivot($to->getKey(), [$this->roleColumn() => $this->ownerRole()]);
+            $this->membersOf($team)->updateExistingPivot($to->getKey(), [$this->roleColumn() => $this->ownerRole()]);
             $this->roleProvider()->assigned($to, $team, $this->ownerRole());
 
-            $team->members()->updateExistingPivot($from->getKey(), [$this->roleColumn() => $demotedRole]);
+            $this->membersOf($team)->updateExistingPivot($from->getKey(), [$this->roleColumn() => $demotedRole]);
             $this->roleProvider()->assigned($from, $team, $demotedRole);
         });
 
-        $team->unsetRelation('members');
+        $this->forgetMembers($team);
 
         OwnershipTransferred::dispatch($team, $from, $to);
     }
@@ -308,12 +411,12 @@ class Teams
 
         $this->assertRole($team, $role, allowOwner: false);
 
-        if ($team->members()->where('email', $email)->exists()) {
+        if ($this->membersOf($team)->where('email', $email)->exists()) {
             throw AlreadyAMember::make();
         }
 
         /** @var TeamInvitation|null $existing */
-        $existing = $team->invitations()->where('email', $email)->first();
+        $existing = $this->invitationsOf($team)->where('email', $email)->first();
 
         if ($existing && $existing->accepted_at !== null) {
             $existing->delete();
@@ -322,7 +425,7 @@ class Teams
 
         // A still-pending invitation already holds its seat; only a brand
         // new (or expired, hence uncounted) one needs a free seat.
-        if (($existing === null || ! $existing->isPending()) && ! $team->hasAvailableSeats()) {
+        if (($existing === null || ! $existing->isPending()) && ! $this->hasAvailableSeats($team)) {
             throw SeatLimitReached::make();
         }
 
@@ -378,7 +481,7 @@ class Teams
         /** @var Model $team */
         $team = $invitation->team;
 
-        if ($team->hasMember($user)) {
+        if ($this->isMember($team, $user)) {
             $invitation->delete();
 
             throw AlreadyAMember::make();
@@ -452,9 +555,14 @@ class Teams
         }
     }
 
+    protected function forgetMembers(Model $team): void
+    {
+        $team->unsetRelation(config('packstub-teams.membership.team_relationship', 'members'));
+    }
+
     protected function assertNotLastOwner(Model $team): void
     {
-        if ($team->owners()->count() <= 1) {
+        if ($this->ownersOf($team)->count() <= 1) {
             throw LastOwnerException::make();
         }
     }

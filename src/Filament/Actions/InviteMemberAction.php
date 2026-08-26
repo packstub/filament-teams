@@ -31,7 +31,7 @@ class InviteMemberAction extends Action
             ->modalWidth('md')
             ->modalDescription(fn (): ?string => $this->seatsDescription())
             ->visible(fn (): bool => ($team = $this->team()) !== null && Teams::canInvite(Teams::currentUser(), $team))
-            ->disabled(fn (): bool => ! $this->team()?->hasAvailableSeats())
+            ->disabled(fn (): bool => ($team = $this->team()) === null || ! Teams::hasAvailableSeats($team))
             ->schema(fn (): array => [
                 TextInput::make('email')
                     ->label(__('packstub-teams::teams.fields.email'))
@@ -68,12 +68,12 @@ class InviteMemberAction extends Action
     protected function seatsDescription(): ?string
     {
         $team = $this->team();
-        $limit = $team?->seatLimit();
+        $limit = $team ? Teams::seatLimit($team) : null;
 
         if ($team === null || $limit === null) {
             return null;
         }
 
-        return __('packstub-teams::teams.seats.summary', ['used' => $team->seatsUsed(), 'limit' => $limit]);
+        return __('packstub-teams::teams.seats.summary', ['used' => Teams::seatsUsed($team), 'limit' => $limit]);
     }
 }

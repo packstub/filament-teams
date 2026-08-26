@@ -41,6 +41,9 @@ class TeamsPlugin implements Plugin
 
     protected ?Closure $canInviteUsing = null;
 
+    /** @var array<string, mixed> */
+    protected array $configOverrides = [];
+
     public static function make(): static
     {
         return app(static::class);
@@ -157,6 +160,39 @@ class TeamsPlugin implements Plugin
         return $this;
     }
 
+    /**
+     * Preset for packstub/filament-tenancy: reuse its Tenant model, the
+     * `tenant_user` pivot (`tenant_id` / `role`) and its `users()` /
+     * `tenants()` relations, and keep invitations on the central connection.
+     */
+    public function useFilamentTenancy(?string $connection = null): static
+    {
+        $this->configOverrides = [
+            'team_model' => config('packstub-tenancy.tenant_model', 'Packstub\\Tenancy\\Models\\Tenant'),
+            'membership.table' => 'tenant_user',
+            'membership.team_foreign_key' => 'tenant_id',
+            'membership.user_foreign_key' => 'user_id',
+            'membership.role_column' => 'role',
+            'membership.team_relationship' => 'users',
+            'membership.user_relationship' => 'tenants',
+            'connection' => $connection ?? config('packstub-teams.connection') ?? (config('tenancy.database.central_connection') ?: null),
+        ];
+
+        return $this;
+    }
+
+    /**
+     * Override any `packstub-teams.*` config key for this panel's runtime.
+     *
+     * @param  array<string, mixed>  $overrides
+     */
+    public function config(array $overrides): static
+    {
+        $this->configOverrides = [...$this->configOverrides, ...$overrides];
+
+        return $this;
+    }
+
     // ------------------------------------------------------------------
     // Accessors
     // ------------------------------------------------------------------
@@ -191,6 +227,10 @@ class TeamsPlugin implements Plugin
 
     public function register(Panel $panel): void
     {
+        foreach ($this->configOverrides as $key => $value) {
+            config()->set("packstub-teams.{$key}", $value);
+        }
+
         $teams = app(Teams::class);
 
         if ($this->roleProvider !== null) {

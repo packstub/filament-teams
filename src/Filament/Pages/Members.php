@@ -46,11 +46,11 @@ class Members extends Page implements HasTable
     public function getSubheading(): ?string
     {
         $team = static::team();
-        $limit = $team?->seatLimit();
+        $limit = $team ? Teams::seatLimit($team) : null;
 
         return $limit === null
             ? null
-            : __('packstub-teams::teams.seats.summary', ['used' => $team->seatsUsed(), 'limit' => $limit]);
+            : __('packstub-teams::teams.seats.summary', ['used' => Teams::seatsUsed($team), 'limit' => $limit]);
     }
 
     public static function getNavigationGroup(): ?string
@@ -68,7 +68,7 @@ class Members extends Page implements HasTable
         $team = static::team();
         $user = Teams::currentUser();
 
-        return parent::canAccess() && $team && $user && $team->hasMember($user);
+        return parent::canAccess() && $team && $user && Teams::isMember($team, $user);
     }
 
     public static function team(): ?Model
@@ -87,8 +87,8 @@ class Members extends Page implements HasTable
         $roleColumn = config('packstub-teams.membership.role_column', 'role');
 
         return $table
-            ->relationship(fn () => $team->members())
-            ->inverseRelationship('joinedTeams')
+            ->relationship(fn () => Teams::membersOf($team))
+            ->inverseRelationship(Teams::userTeamsRelationName())
             ->defaultSort('name')
             ->columns([
                 TextColumn::make('name')
@@ -147,7 +147,7 @@ class Members extends Page implements HasTable
             ->label(__('packstub-teams::teams.actions.transfer_ownership'))
             ->icon(Heroicon::OutlinedArrowRightCircle)
             ->color('warning')
-            ->visible(fn (Model $record): bool => ($user = Teams::currentUser()) && $team->isOwnedBy($user) && ! $record->is($user))
+            ->visible(fn (Model $record): bool => ($user = Teams::currentUser()) && Teams::roleOf($team, $user) === Teams::ownerRole() && ! $record->is($user))
             ->requiresConfirmation()
             ->modalDescription(fn (Model $record): string => __('packstub-teams::teams.confirm.transfer_ownership', ['name' => $record->name]))
             ->action(function (Model $record, Action $action) use ($team): void {
@@ -183,7 +183,7 @@ class Members extends Page implements HasTable
             ->label(__('packstub-teams::teams.actions.leave'))
             ->icon(Heroicon::OutlinedArrowRightStartOnRectangle)
             ->color('gray')
-            ->visible(fn (): bool => ! $team->isOwnedBy(Teams::currentUser()) || $team->owners()->count() > 1)
+            ->visible(fn (): bool => Teams::roleOf($team, Teams::currentUser()) !== Teams::ownerRole() || Teams::ownersOf($team)->count() > 1)
             ->requiresConfirmation()
             ->modalDescription(__('packstub-teams::teams.confirm.leave'))
             ->action(function (Action $action) use ($team): void {

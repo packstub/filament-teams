@@ -56,7 +56,8 @@ class Invitations extends Page implements HasTable
 
     public static function getNavigationBadge(): ?string
     {
-        $count = static::team()?->pendingInvitations()->count() ?? 0;
+        $team = static::team();
+        $count = $team ? Teams::invitationsOf($team)->pending()->count() : 0;
 
         return $count > 0 ? (string) $count : null;
     }
@@ -79,7 +80,7 @@ class Invitations extends Page implements HasTable
         $team = static::team();
 
         return $table
-            ->query(fn (): Builder => TeamInvitation::query()->whereBelongsTo($team, 'team')->whereNull('accepted_at'))
+            ->query(fn (): Builder => TeamInvitation::query()->where('team_id', $team->getKey())->whereNull('accepted_at'))
             ->defaultSort('created_at', 'desc')
             ->emptyStateHeading(__('packstub-teams::teams.invitations.empty_heading'))
             ->emptyStateDescription(__('packstub-teams::teams.invitations.empty_description'))

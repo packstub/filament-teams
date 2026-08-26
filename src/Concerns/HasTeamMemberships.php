@@ -6,7 +6,6 @@ use Filament\Panel;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
-use Packstub\Teams\Facades\Teams;
 use Packstub\Teams\Models\Membership;
 
 /**
@@ -14,9 +13,14 @@ use Packstub\Teams\Models\Membership;
  *
  * The relation is named joinedTeams() because Spatie Permission's HasRoles
  * already defines teams() — both traits commonly sit on the same User.
+ * Already using another tenancy trait (e.g. HasPackstubTenants)? Use
+ * HasTeamRoles instead and point `membership.user_relationship` at your
+ * relation.
  */
 trait HasTeamMemberships
 {
+    use HasTeamRoles;
+
     public function joinedTeams(): BelongsToMany
     {
         $config = config('packstub-teams.membership');
@@ -40,38 +44,5 @@ trait HasTeamMemberships
     public function canAccessTenant(Model $tenant): bool
     {
         return $this->belongsToTeam($tenant);
-    }
-
-    public function belongsToTeam(Model $team): bool
-    {
-        return $this->joinedTeams()->whereKey($team->getKey())->exists();
-    }
-
-    public function teamRole(Model $team): ?string
-    {
-        $role = $this->joinedTeams()->whereKey($team->getKey())
-            ->first()?->pivot?->getAttribute(config('packstub-teams.membership.role_column'));
-
-        return $role === null ? null : (string) $role;
-    }
-
-    /**
-     * @param  string|array<int, string>  $roles
-     */
-    public function hasTeamRole(Model $team, string|array $roles): bool
-    {
-        $role = $this->teamRole($team);
-
-        return $role !== null && in_array($role, (array) $roles, true);
-    }
-
-    public function ownsTeam(Model $team): bool
-    {
-        return $this->teamRole($team) === Teams::ownerRole();
-    }
-
-    public function canManageTeam(Model $team): bool
-    {
-        return Teams::canManage($this, $team);
     }
 }

@@ -36,6 +36,11 @@ class TeamInvitation extends Model
         return config('packstub-teams.invitations_table', 'team_invitations');
     }
 
+    public function getConnectionName(): ?string
+    {
+        return config('packstub-teams.connection') ?? parent::getConnectionName();
+    }
+
     protected static function booted(): void
     {
         static::creating(function (self $invitation): void {

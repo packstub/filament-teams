@@ -67,6 +67,8 @@ Teams::addMember($team, auth()->user(), Teams::ownerRole());
 | `membership.table` / `team_foreign_key` / `user_foreign_key` / `role_column` | the pivot — set `tenant_user` / `tenant_id` to reuse Filament Tenancy's |
 | `roles.provider` | `null` (auto), `simple`, `spatie`, or a `RoleProvider` class |
 | `roles.owner`, `roles.default`, `roles.managers`, `roles.roles` | the reserved owner role, the role new invites get, which roles may manage members, and the config role list |
+| `membership.team_relationship` / `user_relationship` | relation names on your models (`members` / `joinedTeams`; Tenancy: `users` / `tenants`) |
+| `connection` | database connection for the pivot + invitations (central DB in database-per-tenant apps) |
 | `invitations.expire_after_days`, `require_email_match`, `count_pending_toward_seats`, `mail.queue` | invitation behaviour |
 | `seat_limit` | global default (null = unlimited) |
 
@@ -83,7 +85,9 @@ TeamsPlugin::make()
     ->tenantMenuItem()        // "Members" in the tenant switcher menu
     ->membersPage(MyMembers::class)      // or null to skip
     ->invitationsPage(null)
-    ->acceptRoute();          // /{panel}/invitations/{token}
+    ->acceptRoute()           // /{panel}/invitations/{token}
+    ->config(['seat_limit' => 10])       // any packstub-teams.* key, per panel
+    ->useFilamentTenancy();   // preset for packstub/filament-tenancy
 ```
 
 ## Roles with Filament Shield
@@ -141,17 +145,32 @@ Events: `MemberInvited`, `InvitationAccepted`, `MemberAdded`, `MemberRoleChanged
 
 ## Using it with Filament Tenancy
 
-`packstub/filament-tenancy` already keeps a `tenant_user` pivot with a `role` column and an `owner` role. Point this plugin at it and skip the `create_team_user_table` migration:
+`packstub/filament-tenancy` already keeps a `tenant_user` pivot (`tenant_id`, `user_id`, `role`) with an `owner` role, string tenant ids and `users()` / `tenants()` relations. One call wires everything and keeps invitations on the central connection:
 
 ```php
-'team_model' => \App\Models\Tenant::class,
-'membership' => [
-    'table' => 'tenant_user',
-    'team_foreign_key' => 'tenant_id',
-    'user_foreign_key' => 'user_id',
-    'role_column' => 'role',
-],
+$panel->plugins([
+    TenancyPlugin::make()->/* … */,
+    TeamsPlugin::make()->useFilamentTenancy(),   // optional: ->useFilamentTenancy('central')
+]);
 ```
+
+Then publish and run only the invitations migration (`create_team_invitations_table`) — the pivot already exists — and add `HasTeamRoles` to your user next to `HasPackstubTenants`:
+
+```php
+use Packstub\Teams\Concerns\HasTeamRoles;
+use Packstub\Tenancy\Concerns\HasPackstubTenants;
+
+class User extends Authenticatable implements FilamentUser, HasDefaultTenant, HasTenants
+{
+    use HasPackstubTenants, HasTeamRoles; // teamRole(), hasTeamRole(), ownsTeam(), canManageTeam()
+}
+```
+
+Nothing on the `Tenant` model changes: the service reads the tenant's own `users()` relation. The accept link lives on the central host (`/{panel}/invitations/{token}`) and sends the new member to their tenant host afterwards — subdomains share the central session, custom domains go through Tenancy's handoff.
+
+### Without the traits
+
+The traits are conveniences. Every lookup is also available on the service for models you don't control — `Teams::membersOf($team)`, `teamsOf($user)`, `invitationsOf($team)`, `ownersOf($team)`, `isMember()`, `roleOf()`, `seatsUsed()`, `hasAvailableSeats()` — building the relations from `membership.*` config (`team_relationship` / `user_relationship` name the model relations to prefer when they exist). Team keys may be integers, UUIDs/ULIDs or plain strings; set `connection` to keep the pivot and invitations on a central database.
 
 ## Testing
 

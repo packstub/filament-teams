@@ -5,6 +5,7 @@ use Packstub\Teams\Facades\Teams;
 use Packstub\Teams\Tests\Fixtures\Team;
 use Packstub\Teams\Tests\Fixtures\User;
 use Packstub\Teams\Tests\SpatieTestCase;
+use Packstub\Teams\Tests\TenancyShapedTestCase;
 use Packstub\Teams\Tests\TestCase;
 
 pest()->extend(TestCase::class)->in('Feature/*.php');
@@ -42,3 +43,5 @@ function createTeam(?User $owner = null, string $name = 'Acme'): Team
 }
 
 pest()->extend(SpatieTestCase::class)->in('Feature/Spatie');
+
+pest()->extend(TenancyShapedTestCase::class)->in('Feature/Tenancy');

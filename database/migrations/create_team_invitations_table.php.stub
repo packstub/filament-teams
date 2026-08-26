@@ -11,9 +11,18 @@ return new class extends Migration
         $teamModel = config('packstub-teams.team_model');
         $userModel = config('auth.providers.users.model');
 
-        Schema::create(config('packstub-teams.invitations_table', 'team_invitations'), function (Blueprint $table) use ($teamModel, $userModel): void {
+        $team = new $teamModel;
+
+        Schema::connection(config('packstub-teams.connection'))->create(config('packstub-teams.invitations_table', 'team_invitations'), function (Blueprint $table) use ($team, $userModel): void {
             $table->id();
-            $table->foreignIdFor($teamModel, 'team_id')->constrained((new $teamModel)->getTable())->cascadeOnDelete();
+
+            if ($team->getKeyType() === 'int') {
+                $table->foreignIdFor($team, 'team_id')->constrained($team->getTable())->cascadeOnDelete();
+            } else {
+                $table->string('team_id');
+                $table->foreign('team_id')->references($team->getKeyName())->on($team->getTable())->cascadeOnDelete();
+            }
+
             $table->string('email');
             $table->string('role');
             $table->string('token', 64)->unique();
@@ -28,6 +37,6 @@ return new class extends Migration
 
     public function down(): void
     {
-        Schema::dropIfExists(config('packstub-teams.invitations_table', 'team_invitations'));
+        Schema::connection(config('packstub-teams.connection'))->dropIfExists(config('packstub-teams.invitations_table', 'team_invitations'));
     }
 };

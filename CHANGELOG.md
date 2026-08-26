@@ -14,4 +14,6 @@ Initial release.
 - Seat limits from config or `TeamsPlugin::seatLimit()`; pending invitations count toward seats.
 - Ownership rules: reserved owner role, last-owner protection, `transferOwnership()`.
 - Role providers: `SimpleRoleProvider` (config roles) and `SpatieRoleProvider` (Spatie Permission teams — the roles Filament Shield manages), auto-selected; `SetPermissionsTeam` tenant middleware; `SpatieRoleProvider::cloneGlobalRolesToTeam()` to copy template roles into a new team; `Teams::defaultRoleFor()` fallback when the configured default role is not offered.
+- Works without the traits: `Teams::membersOf() / teamsOf() / invitationsOf() / ownersOf() / isMember() / roleOf() / seatsUsed() / hasAvailableSeats()` build relations from config; `membership.team_relationship` / `user_relationship` config; `HasTeamRoles` user trait for apps with another tenancy trait.
+- String/UUID team keys in the migrations; `connection` config for central-database setups; `TeamsPlugin::useFilamentTenancy()` preset and `TeamsPlugin::config()` per-panel overrides.
 - Events: `MemberInvited`, `InvitationAccepted`, `MemberAdded`, `MemberRoleChanged`, `MemberRemoved`, `OwnershipTransferred`.

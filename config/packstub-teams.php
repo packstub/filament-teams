@@ -31,9 +31,20 @@ return [
         'team_foreign_key' => 'team_id',
         'user_foreign_key' => 'user_id',
         'role_column' => 'role',
+
+        // Relationship names the plugin calls when your models define them
+        // (otherwise the relations are built from the keys above). Filament
+        // Tenancy models use `users` / `tenants`.
+        'team_relationship' => 'members',
+        'user_relationship' => 'joinedTeams',
     ],
 
     'invitations_table' => 'team_invitations',
+
+    // Database connection for the pivot and invitations tables. Leave null
+    // for the default; set your central connection in database-per-tenant
+    // setups (e.g. `central` with packstub/filament-tenancy).
+    'connection' => env('PACKSTUB_TEAMS_CONNECTION'),
 
     /*
     |--------------------------------------------------------------------------
