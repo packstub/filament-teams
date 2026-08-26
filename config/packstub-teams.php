@@ -1,0 +1,103 @@
+<?php
+
+return [
+
+    /*
+    |--------------------------------------------------------------------------
+    | Team model
+    |--------------------------------------------------------------------------
+    |
+    | The Eloquent model that represents a team. In a Filament panel with
+    | tenancy enabled this is the tenant model (`->tenant(Team::class)`), and
+    | it must use the `Packstub\Teams\Concerns\HasTeamMembers` trait.
+    |
+    */
+
+    'team_model' => env('PACKSTUB_TEAMS_MODEL', 'App\\Models\\Team'),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Membership pivot
+    |--------------------------------------------------------------------------
+    |
+    | Where memberships live. Adjust the table and foreign keys to reuse an
+    | existing pivot — for packstub/filament-tenancy use table `tenant_user`
+    | with `team_foreign_key` => `tenant_id`.
+    |
+    */
+
+    'membership' => [
+        'table' => 'team_user',
+        'team_foreign_key' => 'team_id',
+        'user_foreign_key' => 'user_id',
+        'role_column' => 'role',
+    ],
+
+    'invitations_table' => 'team_invitations',
+
+    /*
+    |--------------------------------------------------------------------------
+    | Roles
+    |--------------------------------------------------------------------------
+    |
+    | `provider` picks how roles are listed and enforced:
+    |   - null      auto: Spatie when spatie/laravel-permission is installed
+    |               with `permission.teams` enabled, otherwise "simple"
+    |   - "simple"  the `roles` list below, stored on the pivot only
+    |   - "spatie"  Spatie Permission team roles (managed with Filament Shield)
+    |   - a class-string implementing Packstub\Teams\Roles\RoleProvider
+    |
+    | `owner` is the reserved role that may manage the team and cannot be
+    | removed while it is the last one. `default` is assigned to new invites.
+    | `managers` lists the roles allowed to invite, change roles and remove
+    | members (owners always can).
+    |
+    */
+
+    'roles' => [
+        'provider' => env('PACKSTUB_TEAMS_ROLE_PROVIDER'),
+        'owner' => 'owner',
+        'default' => 'member',
+        'managers' => ['admin'],
+        'roles' => [
+            'owner' => 'Owner',
+            'admin' => 'Admin',
+            'member' => 'Member',
+        ],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Invitations
+    |--------------------------------------------------------------------------
+    */
+
+    'invitations' => [
+        'expire_after_days' => 7,
+
+        // Only the invited e-mail address may accept. Disable to let any
+        // signed-in user accept a link they received.
+        'require_email_match' => true,
+
+        // Count pending invitations toward the seat limit.
+        'count_pending_toward_seats' => true,
+
+        'mail' => [
+            'queue' => false,
+        ],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Seats
+    |--------------------------------------------------------------------------
+    |
+    | A global default seat limit (null = unlimited). Override per team with
+    | `TeamsPlugin::make()->seatLimit(fn (Model $team) => ...)` — typically
+    | driven by the team's plan.
+    |
+    */
+
+    'seat_limit' => env('PACKSTUB_TEAMS_SEAT_LIMIT'),
+
+];

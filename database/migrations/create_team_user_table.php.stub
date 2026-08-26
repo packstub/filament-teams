@@ -1,0 +1,30 @@
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        $config = config('packstub-teams.membership');
+        $teamModel = config('packstub-teams.team_model');
+        $userModel = config('auth.providers.users.model');
+
+        Schema::create($config['table'], function (Blueprint $table) use ($config, $teamModel, $userModel): void {
+            $table->id();
+            $table->foreignIdFor($teamModel, $config['team_foreign_key'])->constrained((new $teamModel)->getTable())->cascadeOnDelete();
+            $table->foreignIdFor($userModel, $config['user_foreign_key'])->constrained((new $userModel)->getTable())->cascadeOnDelete();
+            $table->string($config['role_column'])->default(config('packstub-teams.roles.default', 'member'));
+            $table->timestamps();
+
+            $table->unique([$config['team_foreign_key'], $config['user_foreign_key']]);
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists(config('packstub-teams.membership.table'));
+    }
+};
