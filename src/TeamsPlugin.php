@@ -266,35 +266,7 @@ class TeamsPlugin implements Plugin
 
     public function register(Panel $panel): void
     {
-        foreach ($this->configOverrides as $key => $value) {
-            config()->set("packstub-teams.{$key}", $value);
-        }
-
-        $teams = app(Teams::class);
-
-        if ($this->roleProvider !== null) {
-            $teams->useRoleProvider(match ($this->roleProvider) {
-                'simple' => Roles\SimpleRoleProvider::class,
-                'spatie' => Roles\SpatieRoleProvider::class,
-                default => $this->roleProvider,
-            });
-        }
-
-        if ($this->seatLimitUsing) {
-            $teams->seatLimitUsing($this->seatLimitUsing);
-        }
-
-        if ($this->canManageUsing) {
-            $teams->canManageUsing($this->canManageUsing);
-        }
-
-        if ($this->canInviteUsing) {
-            $teams->canInviteUsing($this->canInviteUsing);
-        }
-
-        if ($this->personalTeamUsing) {
-            $teams->personalTeamUsing($this->personalTeamUsing);
-        }
+        $this->configure();
 
         $panel->pages(array_values(array_filter([$this->membersPage, $this->invitationsPage])));
 
@@ -306,7 +278,7 @@ class TeamsPlugin implements Plugin
             });
         }
 
-        if ($teams->usesSpatieRoles()) {
+        if ($this->resolvesToSpatieRoles()) {
             $panel->tenantMiddleware([SetPermissionsTeam::class], isPersistent: true);
         }
 
@@ -323,5 +295,92 @@ class TeamsPlugin implements Plugin
         }
     }
 
-    public function boot(Panel $panel): void {}
+    public function boot(Panel $panel): void
+    {
+        $this->configure();
+    }
+
+    /**
+     * Push this panel's settings into the shared runtime: the
+     * `packstub-teams.*` config and the `Teams` singleton.
+     *
+     * Filament registers every panel at boot, so after registration the
+     * runtime holds the settings of the panel registered last — that is what
+     * console commands and queued jobs see. When a panel is served, Filament
+     * boots only that panel and this runs again, so apps with several panels
+     * (one on packstub/filament-tenancy's Tenant, another on a plain Team
+     * model, say) each get their own team model, pivot, roles and seat rules
+     * per request. Seeders and tests that switch panels with
+     * `Filament::setCurrentPanel()` call `TeamsPlugin::get()->configure()`
+     * afterwards.
+     *
+     * Settings this panel leaves unset fall back to the config file, not to
+     * whatever another panel applied before; config keys no panel overrides
+     * are never touched.
+     */
+    public function configure(): static
+    {
+        $this->applyConfigOverrides();
+
+        $teams = app(Teams::class);
+
+        $teams->useRoleProvider(match ($this->roleProvider) {
+            'simple' => Roles\SimpleRoleProvider::class,
+            'spatie' => Roles\SpatieRoleProvider::class,
+            default => $this->roleProvider,
+        });
+
+        $teams->seatLimitUsing($this->seatLimitUsing);
+        $teams->canManageUsing($this->canManageUsing);
+        $teams->canInviteUsing($this->canInviteUsing);
+        $teams->personalTeamUsing($this->personalTeamUsing);
+
+        return $this;
+    }
+
+    /**
+     * Apply this panel's `packstub-teams.*` overrides. Keys another panel overrode
+     * earlier go back to their original value first, so a panel that leaves a
+     * key unset gets the config file's value, not the other panel's. Keys no
+     * panel touches are left alone — runtime changes to them survive.
+     */
+    protected function applyConfigOverrides(): void
+    {
+        $store = 'packstub-teams.config-originals';
+
+        /** @var array<string, mixed> $originals */
+        $originals = app()->bound($store) ? app($store) : [];
+
+        foreach ($originals as $key => $value) {
+            config()->set("packstub-teams.{$key}", $value);
+        }
+
+        foreach ($this->configOverrides as $key => $value) {
+            if (! array_key_exists($key, $originals)) {
+                $originals[$key] = config("packstub-teams.{$key}");
+            }
+
+            config()->set("packstub-teams.{$key}", $value);
+        }
+
+        app()->instance($store, $originals);
+    }
+
+    /**
+     * Whether this panel will end up on Spatie team roles — decided from the
+     * panel's own setting (or the config file), not from the shared singleton,
+     * which may hold another panel's provider at registration time.
+     */
+    protected function resolvesToSpatieRoles(): bool
+    {
+        $provider = $this->roleProvider ?? config('packstub-teams.roles.provider');
+
+        return match (true) {
+            $provider instanceof Roles\SpatieRoleProvider,
+            $provider === 'spatie',
+            $provider === Roles\SpatieRoleProvider::class => true,
+            $provider === null, $provider === '' => Roles\SpatieRoleProvider::isAvailable(),
+            default => false,
+        };
+    }
 }

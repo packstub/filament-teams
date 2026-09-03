@@ -44,6 +44,10 @@ TeamsPlugin::make()
     ->useFilamentTenancy();                         // preset for packstub/filament-tenancy
 ```
 
+### Several panels
+
+Every panel keeps its own `TeamsPlugin` settings. Filament registers all panels at boot, so console commands and queued jobs see the panel registered last; when a panel is served, its settings are applied again for that request. One app can therefore run a panel on Filament Tenancy's `Tenant` next to a panel on a plain `Team` model — set the keys that differ (`team_model`, `membership.*`, `invitations_table`, `connection`) explicitly on each panel. Keys a panel leaves unset come from the config file, never from another panel. When a seeder or test switches panels with `Filament::setCurrentPanel()`, call `TeamsPlugin::get()->configure()` afterwards so the runtime follows.
+
 ## The service
 
 `Packstub\Teams\Facades\Teams` — `invite`, `inviteMany`, `createInviteLink`, `resend`, `revoke`, `accept`, `acceptAllFor`, `addMember`, `changeRole`, `removeMember`, `transferOwnership`, `roles`, `assignableRoles`, `defaultRoleFor`, `userCan`, `canManage`, `canInvite`, `seatLimit`, `seatsUsed`, `hasAvailableSeats`, `membersOf`, `teamsOf`, `invitationsOf`, `ownersOf`, `isMember`, `roleOf`, `pruneInvitations`, `createPersonalTeam`.
