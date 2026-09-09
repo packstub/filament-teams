@@ -18,16 +18,23 @@ beforeEach(function () {
 });
 
 it('answers permissions from the config role definitions', function () {
+    config()->set('packstub-teams.roles.roles', [
+        'owner' => ['label' => 'Captain', 'permissions' => ['*']],
+        'admin' => ['label' => 'Lead', 'description' => 'Runs the crew.', 'permissions' => ['read', 'delete']],
+        'member' => ['label' => 'Contributor', 'description' => 'Ships the work.', 'permissions' => ['read']],
+    ]);
+
     expect(Teams::userCan($this->owner, $this->team, 'anything'))->toBeTrue()
         ->and(Teams::userCan($this->admin, $this->team, 'delete'))->toBeTrue()
+        ->and(Teams::userCan($this->admin, $this->team, 'update'))->toBeFalse()
         ->and(Teams::userCan($this->member, $this->team, 'read'))->toBeTrue()
         ->and(Teams::userCan($this->member, $this->team, 'delete'))->toBeFalse()
         ->and(Teams::userCan(createUser(), $this->team, 'read'))->toBeFalse()
         ->and($this->member->hasTeamPermission($this->team, 'read'))->toBeTrue()
         ->and($this->member->hasTeamPermission($this->team, 'update'))->toBeFalse()
-        ->and(Teams::roleDescription($this->team, 'member'))->toBe('Works inside the team.')
-        ->and(Teams::roleDescriptions($this->team))->toHaveKeys(['admin', 'member'])
-        ->and(Teams::roles($this->team))->toBe(['owner' => 'Owner', 'admin' => 'Admin', 'member' => 'Member']);
+        ->and(Teams::roleDescription($this->team, 'member'))->toBe('Ships the work.')
+        ->and(Teams::roleDescriptions($this->team))->toBe(['admin' => 'Runs the crew.', 'member' => 'Ships the work.'])
+        ->and(Teams::roles($this->team))->toBe(['owner' => 'Captain', 'admin' => 'Lead', 'member' => 'Contributor']);
 });
 
 it('accepts plain string role definitions too', function () {

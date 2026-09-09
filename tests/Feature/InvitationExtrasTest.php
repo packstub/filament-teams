@@ -215,7 +215,7 @@ it('prunes expired and stale accepted invitations', function () {
 
 it('creates a personal team on registration unless the user came through an invitation', function () {
     TeamsPlugin::make()
-        ->personalTeams(fn (User $user): Team => Team::create(['name' => Teams::personalTeamName($user), 'slug' => 'personal-'.$user->id]))
+        ->personalTeams(fn (User $user): Team => Team::create(['name' => Teams::personalTeamName($user), 'slug' => 'personal-'.$user->id]), name: 'Home of :name')
         ->register(Filament::getPanel('app'));
 
     $user = createUser(['name' => 'Nina']);
@@ -223,7 +223,7 @@ it('creates a personal team on registration unless the user came through an invi
 
     $team = Teams::teamsOf($user)->first();
     expect($team)->not->toBeNull()
-        ->and($team->name)->toBe("Nina's Team")
+        ->and($team->name)->toBe('Home of Nina')
         ->and(Teams::roleOf($team, $user))->toBe('owner');
 
     // Registering twice does not create a second team.

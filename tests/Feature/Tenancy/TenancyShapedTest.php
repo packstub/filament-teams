@@ -32,7 +32,7 @@ beforeEach(function () {
 
 it('migrates string team keys onto the configured pivot and invitations table', function () {
     expect(Schema::getColumnType('tenant_user', 'tenant_id'))->toBe('varchar')
-        ->and(Schema::getColumnType('team_invitations', 'team_id'))->toBe('varchar')
+        ->and(Schema::getColumnType(config('packstub-teams.invitations_table'), 'team_id'))->toBe('varchar')
         ->and(Schema::hasTable('team_user'))->toBeFalse()
         ->and(strlen($this->tenant->getKey()))->toBe(36);
 });

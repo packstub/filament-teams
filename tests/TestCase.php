@@ -80,6 +80,9 @@ abstract class TestCase extends Orchestra
         $app['config']->set('mail.default', 'array');
         $app['config']->set('view.paths', [__DIR__.'/Fixtures/views']);
         $app['config']->set('packstub-teams.team_model', Team::class);
+        $app['config']->set('packstub-teams.roles.provider', null);
+        $app['config']->set('packstub-teams.connection', null);
+        $app['config']->set('packstub-teams.seat_limit', null);
         $app['config']->set('permission.teams', static::$spatieTeams);
         $app['config']->set('permission.register_permission_check_method', true);
     }

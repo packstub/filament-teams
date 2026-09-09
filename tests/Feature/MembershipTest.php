@@ -14,11 +14,14 @@ use Packstub\Teams\Facades\Teams;
 use Packstub\Teams\Roles\SimpleRoleProvider;
 
 it('falls back to the simple role provider without spatie teams', function () {
+    config()->set('packstub-teams.roles.roles', ['owner' => 'Captain', 'lead' => 'Lead', 'contributor' => 'Contributor']);
+    config()->set('packstub-teams.roles.default', 'contributor');
+
     expect(Teams::roleProvider())->toBeInstanceOf(SimpleRoleProvider::class)
         ->and(Teams::usesSpatieRoles())->toBeFalse()
-        ->and(Teams::roles(createTeam()))->toBe(['owner' => 'Owner', 'admin' => 'Admin', 'member' => 'Member'])
-        ->and(Teams::assignableRoles(createTeam()))->toBe(['admin' => 'Admin', 'member' => 'Member'])
-        ->and(Teams::defaultRoleFor(createTeam()))->toBe('member');
+        ->and(Teams::roles(createTeam()))->toBe(['owner' => 'Captain', 'lead' => 'Lead', 'contributor' => 'Contributor'])
+        ->and(Teams::assignableRoles(createTeam()))->toBe(['lead' => 'Lead', 'contributor' => 'Contributor'])
+        ->and(Teams::defaultRoleFor(createTeam()))->toBe('contributor');
 });
 
 it('adds members with a role and exposes it on both sides', function () {

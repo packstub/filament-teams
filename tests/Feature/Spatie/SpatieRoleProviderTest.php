@@ -136,7 +136,9 @@ it('clones global template roles into a team and prefers the team copy', functio
 });
 
 it('falls back to the first assignable role when the configured default is not a spatie role', function () {
-    expect(Teams::defaultRole())->toBe('member')
+    config()->set('packstub-teams.roles.default', 'stakeholder');
+
+    expect(Teams::defaultRole())->toBe('stakeholder')
         ->and(Teams::defaultRoleFor($this->acme))->toBe('admin');
 
     $user = createUser();
