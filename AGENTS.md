@@ -16,7 +16,7 @@ composer lint               # Pint
 - `src/Roles/` — `RoleProvider` seam: `SimpleRoleProvider` (config roles on the pivot) and `SpatieRoleProvider` (Spatie Permission teams feature, i.e. what Filament Shield manages). Auto-selected when `permission.teams` is on.
 - `src/Filament/` — `Members` and `Invitations` pages, `InviteMemberAction`; `src/Http/` — accept route + `SetPermissionsTeam` tenant middleware.
 - `tests/Feature/Spatie/` runs on `SpatieTestCase` (teams enabled before boot); everything else on `TestCase`.
-- `docs/` customer docs. Demo app: `../../demos/filament-teams-demo` (Shield + Spatie teams wired, browser E2E tests).
+- `docs/` customer docs.
 
 ## Conventions
 
