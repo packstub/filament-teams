@@ -28,23 +28,23 @@ Every guide — installation, members, invitations, roles and permissions, Shiel
 
 **Members** — roles per member, seats in the subheading, manager actions per row
 
-<img src="https://packstub.dev/images/docs/filament-teams/members.png" alt="Members page with roles, seats and per-row actions">
+<img src="https://raw.githubusercontent.com/packstub/art/main/filament-teams/docs/members.png" alt="Members page with roles, seats and per-row actions">
 
 **Invite** — several addresses at once with a role
 
-<img src="https://packstub.dev/images/docs/filament-teams/invite-members.png" alt="Invite member modal with a tags input for addresses and a role select">
+<img src="https://raw.githubusercontent.com/packstub/art/main/filament-teams/docs/invite-members.png" alt="Invite member modal with a tags input for addresses and a role select">
 
 **Invitations** — pending e-mails and shareable links, resend and revoke
 
-<img src="https://packstub.dev/images/docs/filament-teams/invitations.png" alt="Invitations page listing a pending invitation and a shareable link">
+<img src="https://raw.githubusercontent.com/packstub/art/main/filament-teams/docs/invitations.png" alt="Invitations page listing a pending invitation and a shareable link">
 
 **Registration through an invitation** — the invited e-mail is prefilled and locked
 
-<img src="https://packstub.dev/images/docs/filament-teams/register-invited.png" alt="Registration page with the invited e-mail prefilled and read-only">
+<img src="https://raw.githubusercontent.com/packstub/art/main/filament-teams/docs/register-invited.png" alt="Registration page with the invited e-mail prefilled and read-only">
 
 **Shield roles per team** — the same user is an owner in one team and a viewer in another
 
-<img src="https://packstub.dev/images/docs/filament-teams/shield-roles.png" alt="Filament Shield's Roles resource scoped to the current team">
+<img src="https://raw.githubusercontent.com/packstub/art/main/filament-teams/docs/shield-roles.png" alt="Filament Shield's Roles resource scoped to the current team">
 
 ## Installation
 
