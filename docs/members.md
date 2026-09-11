@@ -2,13 +2,13 @@
 
 Every member of the current tenant sees the **Members** page; managers (owners plus the roles in `roles.managers`) invite, change roles and remove members; owners can hand over ownership.
 
-<img src="https://packstub.dev/images/docs/filament-teams/members.png" alt="Members page — roles per member with Change role, Transfer ownership and Remove actions">
+<img src="https://raw.githubusercontent.com/packstub/art/main/filament-teams/docs/members.png" alt="Members page — roles per member with Change role, Transfer ownership and Remove actions">
 
 ## Roles
 
 Each member holds exactly one role in each team. `owner` is reserved: it is never offered in the role picker (use *Transfer ownership*), and the last owner can neither be demoted nor removed.
 
-<img src="https://packstub.dev/images/docs/filament-teams/change-role.png" alt="Change role modal">
+<img src="https://raw.githubusercontent.com/packstub/art/main/filament-teams/docs/change-role.png" alt="Change role modal">
 
 ```php
 Teams::changeRole($team, $user, 'admin');

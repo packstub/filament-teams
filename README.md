@@ -2,7 +2,7 @@
 
 <div class="filament-hidden">
 
-![Filament Teams — invite the team, roles per tenant](https://packstub.dev/images/docs/filament-teams/banner.jpg)
+![Filament Teams — invite the team, roles per tenant](https://raw.githubusercontent.com/packstub/art/main/filament-teams/banner.jpg)
 
 </div>
 
