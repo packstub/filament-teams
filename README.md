@@ -8,14 +8,17 @@
 
 Teams, invitations and seat limits for Filament v5 panels with tenancy — with tenant-scoped roles that plug straight into **Filament Shield** / Spatie Permission when they're installed.
 
-- **Members page** — invite by e-mail (several at once), change roles, remove, transfer ownership, leave.
-- **Invitations** — e-mail invitations with expiry, resend cooldown, revoke, copy-link, in-app notification for existing users, **shareable links** with a use limit; guests are sent through login or registration (invited e-mail prefilled and locked) and land in the team; pending invitations are accepted automatically on login/registration.
-- **Permissions** — roles carry permissions (`hasTeamPermission()`, `@teamcan`, `team.can:` middleware) from config, or from Spatie/Shield.
-- **Personal teams** — optional team per new registration.
-- **Seats** — a limit per team (from config, a plan, anything), with pending invitations counted.
-- **Ownership rules** — a reserved owner role that is never assignable by hand and never removable while it is the last one.
-- **Roles, your way** — a config list on the pivot, or Spatie Permission *teams* roles (the ones Shield manages) synced per tenant automatically.
-- Works with Filament's native tenancy and with [Filament Tenancy](https://packstub.dev/plugins/filament-tenancy) (database-per-tenant) — the pivot table and keys are configurable.
+## Features
+
+- **[Members page](https://packstub.dev/docs/filament-teams/members)**: invite, change roles, remove members, transfer ownership or leave the team.
+- **[Invitations](#invitation-flow)**: e-mail invitations and shareable links; guests sign in or register and land in the team.
+- **[Seat limits](https://packstub.dev/docs/filament-teams/members#seats)**: a limit per team from config or the plan, pending invitations counted.
+- **[Roles and permissions](#roles-and-permissions)**: roles that carry permissions, checked with `hasTeamPermission()`, `@teamcan` or a `team.can:` middleware.
+- **[Filament Shield](#roles-with-filament-shield)**: Shield's roles per team, synced for each member automatically.
+- **[Ownership rules](https://packstub.dev/docs/filament-teams/members#roles)**: the owner role is never assigned by hand, and the last owner stays.
+- **[Personal teams](#personal-teams)**: an optional team for every new registration.
+- **[Any tenancy](#using-it-with-filament-tenancy)**: Filament's own tenancy, or database per tenant with Filament Tenancy in one call.
+- **[Built to extend](#the-teams-service)**: a `Teams` service that works without the traits, events, typed exceptions and translations.
 
 ## Installation
 

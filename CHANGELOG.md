@@ -7,6 +7,7 @@ All notable changes to `packstub/filament-teams` are documented here.
 ### Changed
 
 - `TeamsPlugin` applies its settings per panel: `configure()` pushes the panel's config overrides, role provider, seat limit and callbacks into the runtime when the panel is registered *and* again when it boots, so an app can run several panels on different team models (a Tenant-backed panel next to a plain `Team` panel). Settings a panel leaves unset now fall back to the config file instead of what another panel applied. Seeders and tests that switch panels with `Filament::setCurrentPanel()` call `TeamsPlugin::get()->configure()` afterwards.
+- **Docs**: a shorter Features list in the README and on the docs index, one line per area; the README's list gets its own `## Features` heading.
 
 ## 1.0.0 — 2026-08-26
 

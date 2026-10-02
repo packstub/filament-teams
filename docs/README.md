@@ -10,19 +10,15 @@ Every guide — installation, members, invitations, roles and permissions, Shiel
 
 ## Features
 
-- **Members page** — every member sees the team; managers invite, change roles, remove members; owners transfer ownership; anyone can leave
-- **E-mail invitations** — several addresses at once, expiry, resend cooldown, revoke, copy-link, and an in-app notification for invitees who already have an account
-- **Shareable links** — join-with-this-link invitations with a role, an expiry and a use limit
-- **Frictionless acceptance** — guests go through login or registration (invited e-mail prefilled and locked) and join the moment they sign in; pending invitations can be accepted automatically on login
-- **Seat limits** — from config or from the plan, with pending invitations counted; the invite button disables when the team is full
-- **Ownership rules** — a reserved owner role that is never assignable by hand and never removable while it is the last one
-- **Roles with permissions** — Jetstream-style role definitions, `hasTeamPermission()`, a `team.can:` middleware and a `@teamcan` Blade directive
-- **Filament Shield integration** — with Spatie Permission's teams feature on, the plugin lists Shield's roles, syncs a member's Spatie role per team and points `$user->can()` at the current tenant on every request
-- **Personal teams** — optionally create a team for every new registration
-- **Filament Tenancy preset** — `useFilamentTenancy()` reuses the `tenant_user` pivot, string tenant ids and the central connection
-- **Works without traits** — every lookup is on the `Teams` service and builds relations from config, so models you don't control fit too
-- **Events, exceptions, translations** — `MemberInvited`, `InvitationAccepted`, `MemberAdded`, `MemberRoleChanged`, `MemberRemoved`, `OwnershipTransferred`; typed `TeamsException`s; publishable views and translations
-- **Housekeeping** — `teams:prune-invitations` for expired and stale invitations
+- **[Members page](members.md)**: managers invite, change roles and remove members; owners transfer ownership; anyone can leave.
+- **[Invitations](invitations.md)**: e-mail invitations and shareable links; guests sign in or register and land in the team.
+- **[Seat limits](members.md#seats)**: from config or the plan, pending invitations counted, the invite button off when the team is full.
+- **[Roles and permissions](roles-and-permissions.md)**: roles that carry permissions, checked with `hasTeamPermission()`, `@teamcan` or `team.can:`.
+- **[Filament Shield](shield.md)**: Shield's roles per team, synced for each member and answered by `$user->can()`.
+- **[Ownership rules](members.md#roles)**: the owner role is never assigned by hand, and the last owner stays.
+- **[Personal teams](configuration.md#the-plugin-api)**: an optional team for every new registration.
+- **[Filament Tenancy preset](filament-tenancy.md)**: `useFilamentTenancy()` reuses its pivot, string ids and the central connection.
+- **[Built to extend](configuration.md#the-service)**: a `Teams` service that works without the traits, events, typed exceptions, translations and a prune command.
 
 ## Screenshots
 
