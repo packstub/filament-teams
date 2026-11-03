@@ -4,6 +4,8 @@
 
 Packstub Teams is a premium plugin that gives your **Filament v5** tenants everything a SaaS needs around its members: a Members page, e-mail and shareable-link invitations that walk guests through login or registration and drop them into the right team with the right role, seat limits driven by the plan, ownership rules, and roles that carry permissions — from a simple config list or from **Filament Shield**, per team. Filament's built-in tenancy and [Filament Tenancy](https://packstub.dev/plugins/filament-tenancy) (database per tenant) are both supported out of the box.
 
+![Inviting two teammates as editors from the Members page: the seat count goes from 5 to 7 of 8 and both wait on the Invitations page](https://raw.githubusercontent.com/packstub/art/main/filament-teams/docs/teams.gif)
+
 ### Full documentation
 
 Every guide — installation, members, invitations, roles and permissions, Shield, Filament Tenancy, configuration, testing — lives at **[packstub.dev/docs/filament-teams](README.md)**.
