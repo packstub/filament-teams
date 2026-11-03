@@ -26,6 +26,8 @@ TeamsPlugin::make()->seatLimit(fn (Team $team): ?int => $team->plan?->seats); //
 
 Members and pending e-mail invitations count toward the limit (`invitations.count_pending_toward_seats`); shareable links don't until they are used. The page subheading and the invite modal show *n of m seats in use*, and the Invite button is disabled when the team is full.
 
+The limit is checked when an invitation is created, re-sent or accepted, without a database lock. Two managers inviting at the same moment, or two people accepting at once, can take a team one seat over its limit. Treat the limit as a guard for the UI and your plan, and enforce a hard cap in billing if you need one.
+
 ## Who may manage
 
 By default owners and the `roles.managers` roles. Replace the rule per panel:

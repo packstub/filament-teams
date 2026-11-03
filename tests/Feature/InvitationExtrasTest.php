@@ -3,14 +3,24 @@
 use Filament\Facades\Filament;
 use Illuminate\Auth\Events\Login;
 use Illuminate\Auth\Events\Registered;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\MariaDbConnection;
+use Illuminate\Database\MySqlConnection;
+use Illuminate\Database\PostgresConnection;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Database\SQLiteConnection;
+use Illuminate\Database\SqlServerConnection;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Schema;
+use Packstub\Teams\Events\MemberInvited;
 use Packstub\Teams\Exceptions\AlreadyAMember;
+use Packstub\Teams\Exceptions\InvalidEmail;
 use Packstub\Teams\Exceptions\InvalidInvitation;
 use Packstub\Teams\Exceptions\ResendTooSoon;
+use Packstub\Teams\Exceptions\SeatLimitReached;
 use Packstub\Teams\Exceptions\TeamsException;
 use Packstub\Teams\Facades\Teams;
 use Packstub\Teams\Filament\Pages\Auth\Register;
@@ -46,6 +56,149 @@ it('invites several addresses at once and reports the bad ones', function () {
 
     config()->set('packstub-teams.invitations.max_batch', 2);
     expect(fn () => Teams::inviteMany($this->team, ['x@example.com', 'y@example.com', 'z@example.com']))->toThrow(TeamsException::class);
+});
+
+it('splits addresses joined with commas, semicolons or spaces', function () {
+    $result = Teams::inviteMany($this->team, 'leo@acme.test,maya@acme.test; sam@acme.test  LEO@acme.test');
+
+    expect(collect($result['invitations'])->pluck('email')->all())->toBe(['leo@acme.test', 'maya@acme.test', 'sam@acme.test'])
+        ->and($result['errors'])->toBe([]);
+
+    $result = Teams::inviteMany($this->team, ['ana@acme.test,bad@', 'tom@acme.test']);
+
+    expect(collect($result['invitations'])->pluck('email')->all())->toBe(['ana@acme.test', 'tom@acme.test'])
+        ->and(array_keys($result['errors']))->toBe(['bad@']);
+});
+
+it('fills the free seats and reports the addresses past the limit', function () {
+    config()->set('packstub-teams.seat_limit', 3);
+
+    $result = Teams::inviteMany($this->team, ['a@example.com', 'b@example.com', 'c@example.com']);
+
+    expect(collect($result['invitations'])->pluck('email')->all())->toBe(['a@example.com', 'b@example.com'])
+        ->and(array_keys($result['errors']))->toBe(['c@example.com'])
+        ->and(Teams::seatsUsed($this->team))->toBe(3);
+
+    // Re-inviting pending addresses needs no extra seat.
+    config()->set('packstub-teams.invitations.resend_cooldown_minutes', 0);
+    expect(Teams::inviteMany($this->team, ['A@example.com', 'b@example.com'])['errors'])->toBe([]);
+});
+
+it('treats an address as a member whatever its case', function () {
+    Teams::addMember($this->team, $leo = createUser(['email' => 'Leo@Acme.test']));
+
+    expect(fn () => Teams::invite($this->team, 'leo@acme.test'))->toThrow(AlreadyAMember::class)
+        ->and(Teams::inviteMany($this->team, ['LEO@ACME.TEST'])['errors'])->toHaveKey('leo@acme.test')
+        ->and(TeamInvitation::count())->toBe(0);
+});
+
+it('invites nothing and reports nothing for empty input', function (mixed $input) {
+    expect(Teams::inviteMany($this->team, $input))->toBe(['invitations' => [], 'errors' => []])
+        ->and(TeamInvitation::count())->toBe(0);
+})->with([
+    'empty list' => [[]],
+    'empty string' => [''],
+    'only separators' => [' , ; '],
+]);
+
+it('counts the batch limit after splitting', function () {
+    config()->set('packstub-teams.invitations.max_batch', 10);
+
+    $eleven = collect(range(1, 11))->map(fn (int $i): string => "user{$i}@acme.test")->implode(',');
+
+    expect(fn () => Teams::inviteMany($this->team, $eleven))->toThrow(TeamsException::class)
+        ->and(TeamInvitation::count())->toBe(0);
+});
+
+it('ignores items that are not addresses at all', function () {
+    $result = Teams::inviteMany($this->team, [['x@acme.test'], 'leo@acme.test']);
+
+    expect(collect($result['invitations'])->pluck('email')->all())->toBe(['leo@acme.test'])
+        ->and($result['errors'])->toBe([]);
+});
+
+it('lets a member of another team be invited here, whatever the case', function () {
+    $other = createTeam(createUser(), 'Globex');
+    Teams::addMember($other, createUser(['email' => 'Leo@Acme.test']));
+
+    expect(Teams::invite($this->team, 'LEO@acme.test')->email)->toBe('leo@acme.test');
+});
+
+it('rejects an invalid address before saving or sending anything', function () {
+    Event::fake([MemberInvited::class]);
+
+    expect(fn () => Teams::invite($this->team, 'bob@'))->toThrow(InvalidEmail::class, 'That is not a valid e-mail address.')
+        ->and(TeamInvitation::count())->toBe(0);
+
+    Event::assertNotDispatched(MemberInvited::class);
+    Mail::assertNothingSent();
+});
+
+it('applies the resend cooldown when a pending address is invited again', function () {
+    config()->set('packstub-teams.invitations.resend_cooldown_minutes', 5);
+
+    $first = Teams::invite($this->team, 'leo@acme.test', 'member');
+
+    expect(fn () => Teams::invite($this->team, 'Leo@acme.test', 'admin'))->toThrow(ResendTooSoon::class);
+
+    $result = Teams::inviteMany($this->team, ['leo@acme.test', 'maya@acme.test'], 'admin');
+
+    expect(collect($result['invitations'])->pluck('email')->all())->toBe(['maya@acme.test'])
+        ->and($result['errors'])->toHaveKey('leo@acme.test')
+        ->and($first->fresh()->token)->toBe($first->token)
+        ->and($first->fresh()->role)->toBe('member');
+    Mail::assertSent(TeamInvitationMail::class, 2);
+
+    // Without sending, the invitation is updated in place.
+    expect(Teams::invite($this->team, 'leo@acme.test', 'admin', send: false)->role)->toBe('admin');
+
+    $this->travel(6)->minutes();
+
+    Teams::invite($this->team, 'leo@acme.test', 'admin');
+    Mail::assertSent(TeamInvitationMail::class, 3);
+});
+
+it('leaves the invitation untouched when accepting fails', function () {
+    config()->set('packstub-teams.seat_limit', 1);
+    $link = Teams::createInviteLink($this->team, 'member', maxUses: 1);
+
+    expect(fn () => Teams::accept($link, createUser()))->toThrow(SeatLimitReached::class)
+        ->and($link->uses)->toBe(0)
+        ->and($link->accepted_at)->toBeNull()
+        ->and($link->isPending())->toBeTrue();
+});
+
+it('gives an expired invitation a new link when it is updated without sending', function () {
+    $first = Teams::invite($this->team, 'leo@acme.test', 'member');
+
+    $this->travel(8)->days();
+
+    $revived = Teams::invite($this->team, 'leo@acme.test', 'admin', send: false);
+
+    expect($revived->token)->not->toBe($first->token)
+        ->and($revived->isPending())->toBeTrue()
+        ->and(Teams::findPendingInvitation($first->token))->toBeNull()
+        ->and(Teams::findPendingInvitation($revived->token)?->is($first))->toBeTrue();
+});
+
+it('rethrows the original error when the invitation was revoked while accepting', function () {
+    config()->set('packstub-teams.seat_limit', 1);
+    $link = Teams::createInviteLink($this->team, 'member', maxUses: 1);
+    TeamInvitation::query()->whereKey($link->getKey())->delete();
+
+    expect(fn () => Teams::accept($link, createUser()))->toThrow(SeatLimitReached::class)
+        ->and($link->uses)->toBe(0);
+});
+
+it('keeps the e-mailed link when a pending invitation is updated without sending', function () {
+    $first = Teams::invite($this->team, 'leo@acme.test', 'member');
+
+    $updated = Teams::invite($this->team, 'leo@acme.test', 'admin', send: false);
+
+    expect($updated->token)->toBe($first->token)
+        ->and($updated->role)->toBe('admin')
+        ->and(Teams::findPendingInvitation($first->token)?->is($first))->toBeTrue();
+    Mail::assertSent(TeamInvitationMail::class, 1);
 });
 
 it('creates shareable links that any signed-in user may use until exhausted', function () {
@@ -126,7 +279,7 @@ it('notifies invitees who already have an account', function () {
         $table->timestamps();
     });
 
-    $existing = createUser(['email' => 'jane@example.com']);
+    $existing = createUser(['email' => 'Jane@Example.com']);
     Notification::fake();
 
     Teams::invite($this->team, 'jane@example.com');
@@ -140,6 +293,7 @@ it('notifies invitees who already have an account', function () {
     Notification::assertCount(1);
 
     config()->set('packstub-teams.invitations.notify_existing_users', false);
+    config()->set('packstub-teams.invitations.resend_cooldown_minutes', 0);
     Teams::invite($this->team, 'jane@example.com', 'admin');
     Notification::assertCount(1);
 });
@@ -242,3 +396,19 @@ it('creates a personal team on registration unless the user came through an invi
     TeamsPlugin::make()->personalTeams(null)->register(Filament::getPanel('app'));
     expect(Teams::createsPersonalTeams())->toBeFalse();
 });
+
+it('keeps the e-mail lookup indexable where the collation already ignores case', function (string $connectionClass, string $driver, string $expected) {
+    $connection = new $connectionClass(fn () => null, 'db', '', ['driver' => $driver]);
+    $query = (new Builder(new Illuminate\Database\Query\Builder($connection)))->setModel(new User);
+
+    $query = (fn () => $this->whereEmail($query, 'users.email', ' Leo@Acme.test '))->call(app(TeamsService::class));
+
+    expect($query->toSql())->toEndWith($expected)
+        ->and($query->getBindings())->toBe(['leo@acme.test']);
+})->with([
+    'mysql' => [MySqlConnection::class, 'mysql', 'where `users`.`email` = ?'],
+    'mariadb' => [MariaDbConnection::class, 'mariadb', 'where `users`.`email` = ?'],
+    'sqlsrv' => [SqlServerConnection::class, 'sqlsrv', 'where [users].[email] = ?'],
+    'pgsql' => [PostgresConnection::class, 'pgsql', 'where lower("users"."email") = ?'],
+    'sqlite' => [SQLiteConnection::class, 'sqlite', 'where lower("users"."email") = ?'],
+]);

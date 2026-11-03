@@ -6,6 +6,7 @@ use Closure;
 use Filament\Facades\Filament;
 use Filament\Panel;
 use Illuminate\Contracts\Auth\Authenticatable;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -20,6 +21,7 @@ use Packstub\Teams\Events\MemberRemoved;
 use Packstub\Teams\Events\MemberRoleChanged;
 use Packstub\Teams\Events\OwnershipTransferred;
 use Packstub\Teams\Exceptions\AlreadyAMember;
+use Packstub\Teams\Exceptions\InvalidEmail;
 use Packstub\Teams\Exceptions\InvalidInvitation;
 use Packstub\Teams\Exceptions\InvalidRole;
 use Packstub\Teams\Exceptions\LastOwnerException;
@@ -500,9 +502,15 @@ class Teams
         $role ??= $this->defaultRoleFor($team);
         $email = Str::lower(trim($email));
 
+        if (! $this->isValidEmail($email)) {
+            throw InvalidEmail::make();
+        }
+
         $this->assertRole($team, $role, allowOwner: false);
 
-        if ($this->membersOf($team)->where('email', $email)->exists()) {
+        $members = $this->membersOf($team);
+
+        if ($this->whereEmail($members->getQuery(), $members->getRelated()->qualifyColumn('email'), $email)->exists()) {
             throw AlreadyAMember::make();
         }
 
@@ -514,11 +522,21 @@ class Teams
             $existing = null;
         }
 
+        // Re-inviting a pending address re-sends it, so the resend cooldown
+        // applies here too; otherwise the Invite action mails without limit.
+        if ($send && $existing?->isPending() && ($at = $existing->canResendAt())) {
+            throw ResendTooSoon::until($at);
+        }
+
         // A still-pending invitation already holds its seat; only a brand
         // new (or expired, hence uncounted) one needs a free seat.
         if (($existing === null || ! $existing->isPending()) && ! $this->hasAvailableSeats($team)) {
             throw SeatLimitReached::make();
         }
+
+        // Updating a pending invitation without mailing keeps its token, so
+        // the link already e-mailed keeps working.
+        $keepToken = ! $send && $existing !== null && $existing->isPending();
 
         $invitation = $existing ?? new TeamInvitation;
         $invitation->fill([
@@ -531,7 +549,10 @@ class Teams
             'uses' => 0,
         ]);
         $invitation->team()->associate($team);
-        $invitation->token = TeamInvitation::generateToken();
+        if (! $keepToken) {
+            $invitation->token = TeamInvitation::generateToken();
+        }
+
         $invitation->save();
 
         MemberInvited::dispatch($invitation);
@@ -545,14 +566,19 @@ class Teams
 
     /**
      * Invite several addresses at once. Addresses that fail a rule are
-     * reported instead of aborting the batch.
+     * reported instead of aborting the batch. A string (or an item) holding
+     * several addresses separated by commas, semicolons or spaces is split.
      *
-     * @param  iterable<int, string>  $emails
+     * @param  iterable<int, string>|string  $emails
      * @return array{invitations: array<int, TeamInvitation>, errors: array<string, string>}
      */
-    public function inviteMany(Model $team, iterable $emails, ?string $role = null, ?Model $inviter = null, bool $send = true): array
+    public function inviteMany(Model $team, iterable|string $emails, ?string $role = null, ?Model $inviter = null, bool $send = true): array
     {
-        $emails = collect($emails)->map(fn ($e) => Str::lower(trim((string) $e)))->filter()->unique()->values();
+        $emails = collect(is_string($emails) ? [$emails] : $emails)
+            ->flatMap(fn (mixed $e): array => is_scalar($e) ? (preg_split('/[\s,;]+/', (string) $e, -1, PREG_SPLIT_NO_EMPTY) ?: []) : [])
+            ->map(fn (string $e): string => Str::lower($e))
+            ->unique()
+            ->values();
         $max = (int) config('packstub-teams.invitations.max_batch', 10);
 
         if ($max > 0 && $emails->count() > $max) {
@@ -563,12 +589,6 @@ class Teams
         $errors = [];
 
         foreach ($emails as $email) {
-            if (! filter_var($email, FILTER_VALIDATE_EMAIL)) {
-                $errors[$email] = __('packstub-teams::teams.errors.invalid_email');
-
-                continue;
-            }
-
             try {
                 $invitations[] = $this->invite($team, $email, $role, $inviter, $send);
             } catch (TeamsException $exception) {
@@ -577,6 +597,14 @@ class Teams
         }
 
         return ['invitations' => $invitations, 'errors' => $errors];
+    }
+
+    /**
+     * The address check the Invite action and inviteMany() share.
+     */
+    public function isValidEmail(string $email): bool
+    {
+        return filter_var(trim($email), FILTER_VALIDATE_EMAIL) !== false;
     }
 
     /**
@@ -615,6 +643,11 @@ class Teams
             throw ResendTooSoon::until($at);
         }
 
+        // An expired invitation stopped holding a seat; reviving it takes one.
+        if (! $invitation->isPending() && ! $this->hasAvailableSeats($invitation->team)) {
+            throw SeatLimitReached::make();
+        }
+
         $invitation->regenerateToken();
         $this->sendInvitation($invitation);
 
@@ -649,19 +682,29 @@ class Teams
             throw AlreadyAMember::make();
         }
 
-        DB::transaction(function () use ($invitation, $team, $user): void {
-            $invitation->uses++;
+        $before = $invitation->getAttributes();
 
-            // An e-mail invitation is single use and counts as a seat while
-            // pending, so close it before the membership takes that seat.
-            if (! $invitation->isLink() || $invitation->isExhausted()) {
-                $invitation->accepted_at = now();
-            }
+        try {
+            DB::transaction(function () use ($invitation, $team, $user): void {
+                $invitation->uses++;
 
-            $invitation->save();
+                // An e-mail invitation is single use and counts as a seat while
+                // pending, so close it before the membership takes that seat.
+                if (! $invitation->isLink() || $invitation->isExhausted()) {
+                    $invitation->accepted_at = now();
+                }
 
-            $this->addMember($team, $user, $invitation->role);
-        });
+                $invitation->save();
+
+                $this->addMember($team, $user, $invitation->role);
+            });
+        } catch (\Throwable $exception) {
+            // The rollback restored the row; put the model back the same way
+            // without a query (the row may be gone if it was revoked meanwhile).
+            $invitation->setRawAttributes($before, true);
+
+            throw $exception;
+        }
 
         InvitationAccepted::dispatch($invitation, $user);
     }
@@ -752,7 +795,8 @@ class Teams
         }
 
         $model = config('auth.providers.users.model');
-        $user = $model::query()->where('email', $invitation->email)->first();
+        $query = $model::query();
+        $user = $this->whereEmail($query, $query->getModel()->qualifyColumn('email'), (string) $invitation->email)->first();
 
         if (! $user || ! method_exists($user, 'notify')) {
             return;
@@ -805,6 +849,29 @@ class Teams
         if (! array_key_exists($role, $this->roles($team))) {
             throw InvalidRole::make();
         }
+    }
+
+    /**
+     * Match an e-mail column regardless of case: invitations store
+     * addresses lower-cased, user tables often keep what was typed.
+     * MySQL, MariaDB and SQL Server compare case-insensitively under their
+     * default collations, so a plain (indexed) where does; SQLite and
+     * PostgreSQL compare case-sensitively and get lower() on the column.
+     *
+     * @param  Builder<Model>  $query
+     * @return Builder<Model>
+     */
+    protected function whereEmail(Builder $query, string $column, string $email): Builder
+    {
+        $email = Str::lower(trim($email));
+
+        if (in_array($query->getQuery()->getConnection()->getDriverName(), ['mysql', 'mariadb', 'sqlsrv'], true)) {
+            return $query->where($column, $email);
+        }
+
+        $grammar = $query->getQuery()->getGrammar();
+
+        return $query->whereRaw('lower('.$grammar->wrap($column).') = ?', [$email]);
     }
 
     protected function forgetMembers(Model $team): void
