@@ -1,6 +1,8 @@
 # Using it with Filament Tenancy
 
-[Filament Tenancy](https://packstub.dev/plugins/filament-tenancy) (database per tenant) already keeps a `tenant_user` pivot with `tenant_id`, `user_id` and `role`, an `owner` role, string tenant ids and `users()` / `tenants()` relations. One call wires everything and keeps invitations on the central connection:
+[Filament Tenancy](https://packstub.dev/plugins/filament-tenancy) is a separate, paid Packstub plugin that gives each tenant its own database. Filament Teams is free and works with or without it; this page is for apps that use both. Install Tenancy first, following [its installation guide](https://packstub.dev/docs/filament-tenancy/installation).
+
+Filament Tenancy already keeps a `tenant_user` pivot with `tenant_id`, `user_id` and `role`, an `owner` role, string tenant ids and `users()` / `tenants()` relations. One call wires everything and keeps invitations on the central connection:
 
 ```php
 $panel->plugins([

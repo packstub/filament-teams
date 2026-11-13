@@ -1,24 +1,32 @@
-# filamentphp.com listing metadata — Packstub Teams
+# filamentphp.com listing metadata — Filament Teams
 
-Values for https://filamentphp.com/author/packstub/plugins/create (see store/docs/plugin-listing-playbook.md).
+Values for https://filamentphp.com/author/packstub/plugins/create (see store/docs/plugin-listing-playbook.md). Free and open source (MIT), installed from Packagist.
+
+## Status
+
+- [ ] Repository public, submitted to Packagist (GitHub webhook on)
+- [ ] First release with the MIT license tagged (Packagist must list it before the form is submitted)
+- [ ] README checked against the playbook's directory shape (Compatibility table, per-feature screenshots)
+- [ ] Submit the form below, check the preview URL, wait for review
+- [ ] After approval: "Listed on filamentphp.com" badge in the README, note the date and URL here
+
+## Plugin listing
 
 | Field | Value |
 |---|---|
-| Name | Packstub Teams |
-| Slug | packstub-teams |
-| GitHub repository | packstub/filament-teams (private) |
-| Composer package name | packstub/filament-teams |
-| Description | Invite members by e-mail or link, manage roles and seats per tenant, and let Filament Shield permissions follow the team. |
-| Image | store `art/teams/banner.jpg` (2560×1440) |
-| Thumbnail | store `art/teams/thumbnail.jpg` (2560×1440) |
-| Versions | 5.x |
-| Categories | Authentication, Users, Panel Builder, Multi-tenancy |
-| Dark theme | yes |
-| Translation support | yes |
-| Documentation URL | https://packstub.dev/plugins/filament-teams.md |
-| Website | https://packstub.dev/docs/filament-teams |
-| Pricing | Lemon Squeezy product for the directory: "Packstub Teams" — Solo / Unlimited variants (create, then fill LEMONSQUEEZY_* env on the store) |
+| Name | `Teams` (no "Filament" in the directory name) |
+| Slug | `packstub-teams` |
+| GitHub repository | `packstub/filament-teams` |
+| Composer package name | `packstub/filament-teams` |
+| Description (≤125 chars) | `Invite members by e-mail or link, manage roles and seats per tenant, and let Filament Shield permissions follow the team.` |
+| Categories | Panels, Panel Authentication, Panel Authorization, Spatie Integration |
+| Supported Filament versions | `5` |
+| Dark mode ready | `true` |
+| Translation support | leave unticked: every string is in `resources/lang`, but only `en` ships |
+| Documentation URL | `https://raw.githubusercontent.com/packstub/filament-teams/main/README.md` |
+| Discord | leave empty |
+| Pricing | leave empty (MIT) |
+| Image (banner) | store `public/images/plugins/filament-teams/banner.jpg` |
+| Thumbnail | store `public/images/plugins/filament-teams/thumbnail.jpg` |
 
-Names by channel: **Filament Teams** on packstub.dev / Paddle, **Packstub Teams** on filamentphp.com / Lemon Squeezy.
-
-Before submitting: tag a release (`v1.0.0`), run `ProductionCatalogSeeder` on production with the Paddle price IDs set, press *Refresh documentation* after listing edits.
+One name everywhere: **Filament Teams**; just **Teams** in the filamentphp.com directory.

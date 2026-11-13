@@ -4,6 +4,10 @@ All notable changes to `packstub/filament-teams` are documented here.
 
 ## Unreleased
 
+Filament Teams is now free and open source under the MIT license.
+
+- Install from Packagist with `composer require packstub/filament-teams`; no access token or private Composer repository needed
+- **Upgrading:** if your `composer.json` has the `packstub-filament-teams` repository (`https://packstub.dev/composer/filament-teams`), remove it with `composer config --unset repositories.packstub-filament-teams`, then run `composer update packstub/filament-teams`
 - Run several panels on different team models: `TeamsPlugin` settings now apply per panel, and unset ones fall back to the config file
 - **Upgrading:** seeders and tests that switch panels with `Filament::setCurrentPanel()` call `TeamsPlugin::get()->configure()` afterwards
 - Docs: a shorter Features list in the README and on the docs index
