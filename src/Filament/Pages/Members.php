@@ -129,6 +129,7 @@ class Members extends Page implements HasTable
             ->schema([
                 Select::make('role')
                     ->label(__('packstub-teams::teams.fields.role'))
+                    ->native(false)
                     ->options(Teams::assignableRoles($team))
                     ->required(),
             ])

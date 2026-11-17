@@ -8,6 +8,8 @@ Filament Teams gives your **Filament v5** tenants everything a SaaS needs around
 - Packagist: [packstub/filament-teams](https://packagist.org/packages/packstub/filament-teams)
 - Support: [GitHub issues](https://github.com/packstub/filament-teams/issues)
 
+![Inviting two teammates as editors from the Members page: the seat count goes from 5 to 7 of 8 and both wait on the Invitations page](https://raw.githubusercontent.com/packstub/art/main/filament-teams/docs/teams.gif)
+
 ### Full documentation
 
 Every guide — installation, members, invitations, roles and permissions, Shield, Filament Tenancy, configuration, testing — lives at **[packstub.dev/docs/filament-teams](README.md)**.

@@ -50,6 +50,6 @@ Every panel keeps its own `TeamsPlugin` settings. Filament registers all panels 
 
 ## The service
 
-`Packstub\Teams\Facades\Teams` — `invite`, `inviteMany`, `createInviteLink`, `resend`, `revoke`, `accept`, `acceptAllFor`, `addMember`, `changeRole`, `removeMember`, `transferOwnership`, `roles`, `assignableRoles`, `defaultRoleFor`, `userCan`, `canManage`, `canInvite`, `seatLimit`, `seatsUsed`, `hasAvailableSeats`, `membersOf`, `teamsOf`, `invitationsOf`, `ownersOf`, `isMember`, `roleOf`, `pruneInvitations`, `createPersonalTeam`.
+`Packstub\Teams\Facades\Teams` — `invite`, `inviteMany`, `isValidEmail`, `createInviteLink`, `resend`, `revoke`, `accept`, `acceptAllFor`, `addMember`, `changeRole`, `removeMember`, `transferOwnership`, `roles`, `assignableRoles`, `defaultRoleFor`, `userCan`, `canManage`, `canInvite`, `seatLimit`, `seatsUsed`, `hasAvailableSeats`, `membersOf`, `teamsOf`, `invitationsOf`, `ownersOf`, `isMember`, `roleOf`, `pruneInvitations`, `createPersonalTeam`.
 
-Rule violations throw a `Packstub\Teams\Exceptions\TeamsException` subclass: `SeatLimitReached`, `LastOwnerException`, `InvalidInvitation`, `InvalidRole`, `NotAMember`, `AlreadyAMember`, `ResendTooSoon`. The Filament pages turn them into notifications.
+Rule violations throw a `Packstub\Teams\Exceptions\TeamsException` subclass: `SeatLimitReached`, `LastOwnerException`, `InvalidInvitation`, `InvalidRole`, `InvalidEmail`, `NotAMember`, `AlreadyAMember`, `ResendTooSoon`. The Filament pages turn them into notifications.

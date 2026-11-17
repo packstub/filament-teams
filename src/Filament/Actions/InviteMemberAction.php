@@ -2,6 +2,7 @@
 
 namespace Packstub\Teams\Filament\Actions;
 
+use Closure;
 use Filament\Actions\Action;
 use Filament\Facades\Filament;
 use Filament\Forms\Components\Select;
@@ -37,12 +38,30 @@ class InviteMemberAction extends Action
                     ->label(__('packstub-teams::teams.fields.emails'))
                     ->placeholder(__('packstub-teams::teams.fields.emails_placeholder'))
                     ->helperText(__('packstub-teams::teams.fields.emails_help', ['max' => (int) config('packstub-teams.invitations.max_batch', 10)]))
-                    ->separator(',')
-                    ->splitKeys(['Tab', ' ', ';'])
-                    ->nestedRecursiveRules(['email'])
+                    // No separator(): it would join the tags into one
+                    // comma-separated string. The state stays an array.
+                    // Filament also splits pasted text on these, as literal
+                    // strings: never 'Tab' (it would cut "Tabitha@…"); "\t"
+                    // splits a pasted spreadsheet row, and Tab still adds the
+                    // tag on blur.
+                    ->splitKeys([' ', ',', ';', "\t"])
+                    ->nestedRecursiveRules([
+                        fn (): Closure => function (string $attribute, mixed $value, Closure $fail): void {
+                            if (! is_string($value)) {
+                                $fail(__('packstub-teams::teams.errors.invalid_email'));
+
+                                return;
+                            }
+
+                            if (! Teams::isValidEmail($value)) {
+                                $fail(__('packstub-teams::teams.errors.invalid_email_named', ['email' => trim($value)]));
+                            }
+                        },
+                    ])
                     ->required(),
                 Select::make('role')
                     ->label(__('packstub-teams::teams.fields.role'))
+                    ->native(false)
                     ->options(Teams::assignableRoles($this->team()))
                     ->default(Teams::defaultRoleFor($this->team()))
                     ->required(),

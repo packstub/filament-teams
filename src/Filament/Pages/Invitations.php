@@ -170,6 +170,7 @@ class Invitations extends Page implements HasTable
             ->schema([
                 Select::make('role')
                     ->label(__('packstub-teams::teams.fields.role'))
+                    ->native(false)
                     ->options(Teams::assignableRoles($team))
                     ->default(Teams::defaultRoleFor($team))
                     ->required(),

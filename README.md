@@ -14,6 +14,8 @@
 
 Teams, invitations and seat limits for Filament v5 panels with tenancy — with tenant-scoped roles that plug straight into **Filament Shield** / Spatie Permission when they're installed.
 
+![Inviting two teammates as editors from the Members page: the seat count goes from 5 to 7 of 8 and both wait on the Invitations page](https://raw.githubusercontent.com/packstub/art/main/filament-teams/docs/teams.gif)
+
 ## Features
 
 - **[Members page](https://packstub.dev/docs/filament-teams/members)**: invite, change roles, remove members, transfer ownership or leave the team.

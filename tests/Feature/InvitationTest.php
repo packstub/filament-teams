@@ -129,6 +129,24 @@ it('rejects expired invitations and lets resend revive them', function () {
     expect(TeamInvitation::count())->toBe(0);
 });
 
+it('needs a free seat to revive an expired invitation', function () {
+    config()->set('packstub-teams.seat_limit', 2);
+
+    $expired = Teams::invite($this->team, 'jane@example.com');
+    $expired->forceFill(['expires_at' => now()->subMinute()])->save();
+
+    // The expired invitation no longer holds its seat, so it went to Sam.
+    Teams::invite($this->team, 'sam@example.com');
+
+    expect(fn () => Teams::resend($expired))->toThrow(SeatLimitReached::class)
+        ->and($expired->fresh()->isExpired())->toBeTrue()
+        ->and($this->team->seatsUsed())->toBe(2);
+
+    // A pending one still holds its seat and resends at the limit.
+    Teams::resend(TeamInvitation::query()->where('email', 'sam@example.com')->first());
+    Mail::assertSent(TeamInvitationMail::class, 3);
+});
+
 it('sends guests to the login page and joins them after signing in', function () {
     $invitation = Teams::invite($this->team, 'jane@example.com');
     $url = $invitation->acceptUrl();

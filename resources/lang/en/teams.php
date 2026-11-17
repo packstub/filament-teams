@@ -74,6 +74,7 @@ return [
         'no_permission' => 'You do not have permission to do that in this team.',
         'too_many_invites' => 'You can invite up to :max addresses at once.',
         'invalid_email' => 'That is not a valid e-mail address.',
+        'invalid_email_named' => ':email is not a valid e-mail address.',
     ],
     'mail' => [
         'subject' => 'You have been invited to join :team',
