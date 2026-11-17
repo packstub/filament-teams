@@ -4,6 +4,10 @@ All notable changes to `packstub/filament-teams` are documented here.
 
 ## Unreleased
 
+Filament Teams is now free and open source under the MIT license.
+
+- Install from Packagist with `composer require packstub/filament-teams`; no access token or private Composer repository needed
+- **Upgrading:** if your `composer.json` has the `packstub-filament-teams` repository (`https://packstub.dev/composer/filament-teams`), remove it with `composer config --unset repositories.packstub-filament-teams`, then run `composer update packstub/filament-teams`
 - Run several panels on different team models: `TeamsPlugin` settings now apply per panel, and unset ones fall back to the config file
 - Invite several addresses at once again: each is invited on its own, and a pasted list (commas, spaces, a spreadsheet row) is split for you
 - Invalid addresses are named in the Invite form before anything is sent, and `Teams::invite()` throws `InvalidEmail` instead of saving a broken invitation

@@ -1,6 +1,6 @@
 # packstub/filament-teams
 
-Paid Filament v5 plugin: teams, invitations, seat limits and tenant-scoped roles for panels with tenancy. Paid: **Filament Teams** on packstub.dev, **Packstub Teams** on filamentphp.com.
+Free (MIT) Filament v5 plugin: teams, invitations, seat limits and tenant-scoped roles for panels with tenancy. Installed from Packagist (`composer require packstub/filament-teams`). One name everywhere, **Filament Teams**; just **Teams** on filamentphp.com.
 
 ## Commands
 
@@ -16,7 +16,7 @@ composer lint               # Pint
 - `src/Roles/` — `RoleProvider` seam: `SimpleRoleProvider` (config roles on the pivot) and `SpatieRoleProvider` (Spatie Permission teams feature, i.e. what Filament Shield manages). Auto-selected when `permission.teams` is on.
 - `src/Filament/` — `Members` and `Invitations` pages, `InviteMemberAction`; `src/Http/` — accept route + `SetPermissionsTeam` tenant middleware.
 - `tests/Feature/Spatie/` runs on `SpatieTestCase` (teams enabled before boot); everything else on `TestCase`.
-- `docs/` customer docs.
+- `docs/` — the packstub.dev pages (synced by `docs-sync.yml`).
 
 ## Conventions
 
