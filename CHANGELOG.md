@@ -2,6 +2,10 @@
 
 All notable changes to `packstub/filament-teams` are documented here.
 
+## Unreleased
+
+- Docs: the README has a Compatibility table and links to every docs page
+
 ## 1.1.0 — 2026-11-17
 
 Filament Teams is now free and open source under the MIT license.

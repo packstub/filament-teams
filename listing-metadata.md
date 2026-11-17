@@ -4,11 +4,11 @@ Values for https://filamentphp.com/author/packstub/plugins/create (see store/doc
 
 ## Status
 
-- [ ] Repository public, submitted to Packagist (GitHub webhook on)
-- [ ] First release with the MIT license tagged (Packagist must list it before the form is submitted)
-- [ ] README checked against the playbook's directory shape (Compatibility table, per-feature screenshots)
+- [x] Repository public, submitted to Packagist (GitHub webhook on) (2026-11-17)
+- [x] First release with the MIT license tagged: v1.1.0 (2026-11-17), on Packagist as MIT
+- [x] README checked against the playbook's directory shape: Compatibility table and Documentation links added (2026-11-17)
 - [ ] Submit the form below, check the preview URL, wait for review
-- [ ] After approval: "Listed on filamentphp.com" badge in the README, note the date and URL here
+- [ ] After approval: "Listed on filamentphp.com" badge in the README, `directory_url` in the store's `ProductionCatalogSeeder`, note the date and URL here
 
 ## Plugin listing
 
