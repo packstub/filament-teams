@@ -17,15 +17,20 @@
         "spatie-permission",
         "saas"
     ],
-    "homepage": "https://packstub.dev",
+    "homepage": "https://github.com/packstub/filament-teams",
     "support": {
-        "email": "support@packstub.dev",
         "issues": "https://github.com/packstub/filament-teams/issues",
+        "source": "https://github.com/packstub/filament-teams",
         "docs": "https://packstub.dev/docs/filament-teams"
     },
     "type": "library",
-    "license": "proprietary",
+    "license": "MIT",
     "authors": [
+        {
+            "name": "Ion Caliman",
+            "email": "icaliman92@gmail.com",
+            "role": "Developer"
+        },
         {
             "name": "Packstub",
             "email": "support@packstub.dev",
@@ -82,6 +87,6 @@
             "dev-main": "1.x-dev"
         }
     },
-    "minimum-stability": "dev",
+    "minimum-stability": "stable",
     "prefer-stable": true
 }

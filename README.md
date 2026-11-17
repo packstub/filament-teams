@@ -4,6 +4,12 @@
 
 ![Filament Teams — invite the team, roles per tenant](https://raw.githubusercontent.com/packstub/art/main/filament-teams/banner.jpg)
 
+[![Latest Version on Packagist](https://img.shields.io/packagist/v/packstub/filament-teams.svg?style=flat-square)](https://packagist.org/packages/packstub/filament-teams)
+[![Tests](https://img.shields.io/github/actions/workflow/status/packstub/filament-teams/tests.yml?branch=main&label=tests&style=flat-square)](https://github.com/packstub/filament-teams/actions/workflows/tests.yml)
+[![Total Downloads](https://img.shields.io/packagist/dt/packstub/filament-teams.svg?style=flat-square)](https://packagist.org/packages/packstub/filament-teams)
+[![License](https://img.shields.io/packagist/l/packstub/filament-teams.svg?style=flat-square)](https://github.com/packstub/filament-teams/blob/main/LICENSE.md)
+[![Sponsor](https://img.shields.io/badge/sponsor-%E2%9D%A4-ea4aaa?style=flat-square&logo=githubsponsors&logoColor=white)](https://github.com/sponsors/icaliman)
+
 </div>
 
 Teams, invitations and seat limits for Filament v5 panels with tenancy — with tenant-scoped roles that plug straight into **Filament Shield** / Spatie Permission when they're installed.
@@ -198,7 +204,7 @@ TeamsPlugin::make()->personalTeams(
 
 ## Using it with Filament Tenancy
 
-`packstub/filament-tenancy` already keeps a `tenant_user` pivot (`tenant_id`, `user_id`, `role`) with an `owner` role, string tenant ids and `users()` / `tenants()` relations. One call wires everything and keeps invitations on the central connection:
+[Filament Tenancy](https://packstub.dev/plugins/filament-tenancy) is a separate, paid Packstub plugin for database-per-tenant panels; Filament Teams works with or without it. When you use both, `packstub/filament-tenancy` already keeps a `tenant_user` pivot (`tenant_id`, `user_id`, `role`) with an `owner` role, string tenant ids and `users()` / `tenants()` relations. One call wires everything and keeps invitations on the central connection:
 
 ```php
 $panel->plugins([
@@ -231,6 +237,23 @@ The traits are conveniences. Every lookup is also available on the service for m
 composer test
 ```
 
+## Changelog
+
+See the [changelog](https://github.com/packstub/filament-teams/blob/main/CHANGELOG.md).
+
+## Contributing
+
+See [CONTRIBUTING](https://github.com/packstub/filament-teams/blob/main/.github/CONTRIBUTING.md).
+
+## Security
+
+See [our security policy](https://github.com/packstub/filament-teams/security/policy).
+
+## Credits
+
+- [Ion Caliman](https://github.com/icaliman) and [Packstub](https://packstub.dev)
+- [All contributors](https://github.com/packstub/filament-teams/graphs/contributors)
+
 ## License
 
-Commercial — see [LICENSE.md](LICENSE.md). Support: support@packstub.dev.
+MIT. See the [license file](https://github.com/packstub/filament-teams/blob/main/LICENSE.md).

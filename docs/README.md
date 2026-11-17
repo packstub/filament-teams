@@ -1,8 +1,12 @@
-# Packstub Teams
+# Filament Teams
 
 **Invite the team. Roles per tenant.**
 
-Packstub Teams is a premium plugin that gives your **Filament v5** tenants everything a SaaS needs around its members: a Members page, e-mail and shareable-link invitations that walk guests through login or registration and drop them into the right team with the right role, seat limits driven by the plan, ownership rules, and roles that carry permissions — from a simple config list or from **Filament Shield**, per team. Filament's built-in tenancy and [Filament Tenancy](https://packstub.dev/plugins/filament-tenancy) (database per tenant) are both supported out of the box.
+Filament Teams gives your **Filament v5** tenants everything a SaaS needs around its members: a Members page, e-mail and shareable-link invitations that walk guests through login or registration and drop them into the right team with the right role, seat limits driven by the plan, ownership rules, and roles that carry permissions — from a simple config list or from **Filament Shield**, per team. Filament's built-in tenancy and [Filament Tenancy](https://packstub.dev/plugins/filament-tenancy) (database per tenant) are both supported out of the box. Free and open source (MIT).
+
+- Repository: [github.com/packstub/filament-teams](https://github.com/packstub/filament-teams)
+- Packagist: [packstub/filament-teams](https://packagist.org/packages/packstub/filament-teams)
+- Support: [GitHub issues](https://github.com/packstub/filament-teams/issues)
 
 ### Full documentation
 
@@ -50,17 +54,11 @@ Every guide — installation, members, invitations, roles and permissions, Shiel
 |---|---|---|---|
 | `1.x` | `^5.0` | `^12.0` / `^13.0` | `8.3+` |
 
-Optional: `spatie/laravel-permission` + `bezhansalleh/filament-shield` for Shield-managed roles; `packstub/filament-tenancy` for database-per-tenant apps.
-
-### Purchasing a license
-
-Licenses are sold at **[packstub.dev/plugins/filament-teams](https://packstub.dev/plugins/filament-teams)**. After purchase, sign in to your Packstub dashboard and create an access token on the **Install Guide** page — it shows the commands below with your token filled in.
+Optional: `spatie/laravel-permission` + `bezhansalleh/filament-shield` for Shield-managed roles; [Filament Tenancy](https://packstub.dev/plugins/filament-tenancy) (`packstub/filament-tenancy`, a separate paid plugin) for database-per-tenant apps.
 
 ### Installing with Composer
 
 ```bash
-composer config repositories.packstub-filament-teams composer https://packstub.dev/composer/filament-teams
-composer config --auth http-basic.packstub.dev pkg_xxxxxxxxxxxxxxxx your-token-secret
 composer require packstub/filament-teams
 php artisan packstub-teams:install
 ```
@@ -142,7 +140,7 @@ The package ships 50+ Pest tests — membership rules, the invitation HTTP flow,
 
 | Guide | What's inside |
 |---|---|
-| [Installation](installation.md) | Registry auth, installer, models, panel wiring |
+| [Installation](installation.md) | Requirements, installer, models, panel wiring |
 | [Members](members.md) | Roles, seats, ownership, who may manage |
 | [Invitations](invitations.md) | E-mail and link invitations, acceptance flow, housekeeping |
 | [Roles and permissions](roles-and-permissions.md) | Role definitions, checks, providers |
@@ -153,14 +151,17 @@ The package ships 50+ Pest tests — membership rules, the invitation HTTP flow,
 
 ## Support
 
-- **Email:** [support@packstub.dev](mailto:support@packstub.dev) — answered within one business day
-- **Issues:** private issue tracker access comes with your license
-- **Security:** report privately to [support@packstub.dev](mailto:support@packstub.dev)
+- **Questions and bugs:** [GitHub issues](https://github.com/packstub/filament-teams/issues)
+- **Security:** report privately, see the [security policy](https://github.com/packstub/filament-teams/security/policy)
 
 ## Changelog
 
-Every release is documented in the package `CHANGELOG.md`. Config keys, the fluent API, and published views are treated as public API and follow semver.
+Every release is documented in the [changelog](https://github.com/packstub/filament-teams/blob/main/CHANGELOG.md). Config keys, the fluent API, and published views are treated as public API and follow semver.
 
 ## License
 
-Packstub Teams is commercial software. Every license includes the full source code, **12 months of updates and support**, and a **perpetual license** for the versions you received.
+Filament Teams is free and open source under the [MIT license](https://github.com/packstub/filament-teams/blob/main/LICENSE.md).
+
+---
+
+These pages are published at [packstub.dev/docs/filament-teams](https://packstub.dev/docs/filament-teams) from the package's `docs/` directory. Spotted a mistake? [Open a pull request](https://github.com/packstub/filament-teams).

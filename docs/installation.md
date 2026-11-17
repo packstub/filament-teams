@@ -6,17 +6,13 @@
 |---|---|---|---|
 | `1.x` | `^5.0` | `^12.0` / `^13.0` | `8.3+` |
 
-Optional: `spatie/laravel-permission` (teams feature) and `bezhansalleh/filament-shield` for Shield-managed roles; `packstub/filament-tenancy` for database-per-tenant apps.
-
-## Purchasing a license
-
-Licenses are sold at [packstub.dev/plugins/filament-teams](https://packstub.dev/plugins/filament-teams). After purchase, create an access token on the **Install Guide** page of your Packstub dashboard — it shows the commands below with your token filled in.
+Optional: `spatie/laravel-permission` (teams feature) and `bezhansalleh/filament-shield` for Shield-managed roles; [Filament Tenancy](https://packstub.dev/plugins/filament-tenancy) (`packstub/filament-tenancy`, a separate paid plugin) for database-per-tenant apps.
 
 ## Installing with Composer
 
+Filament Teams is free and open source (MIT) and installs from Packagist:
+
 ```bash
-composer config repositories.packstub-filament-teams composer https://packstub.dev/composer/filament-teams
-composer config --auth http-basic.packstub.dev pkg_xxxxxxxxxxxxxxxx your-token-secret
 composer require packstub/filament-teams
 php artisan packstub-teams:install
 ```
