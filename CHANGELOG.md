@@ -17,6 +17,7 @@ Filament Teams is now free and open source under the MIT license.
 - **Upgrading:** `InviteMemberAction`'s `emails` form data is an array, `Teams::invite()` throws `ResendTooSoon` inside the cooldown, and an override of `inviteMany()` takes `iterable|string`
 - Personal teams are created for people who sign up on the panel's own registration page, and an invitation followed before sign-up is accepted there too
 - Docs: a shorter Features list, and notes on seat checks under concurrency and a `lower(email)` index on PostgreSQL
+- `composer.json`'s homepage points at the package's page on packstub.dev
 
 ## 1.0.0 — 2026-08-26
 
