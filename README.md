@@ -28,6 +28,12 @@ Teams, invitations and seat limits for Filament v5 panels with tenancy — with 
 - **[Any tenancy](#using-it-with-filament-tenancy)**: Filament's own tenancy, or database per tenant with Filament Tenancy in one call.
 - **[Built to extend](#the-teams-service)**: a `Teams` service that works without the traits, events, typed exceptions and translations.
 
+## Compatibility
+
+| Plugin | Filament | Laravel | PHP |
+| --- | --- | --- | --- |
+| 1.x | 5.x | 12.x, 13.x | 8.3+ |
+
 ## Installation
 
 ```bash
@@ -232,6 +238,19 @@ Nothing on the `Tenant` model changes: the service reads the tenant's own `users
 ### Without the traits
 
 The traits are conveniences. Every lookup is also available on the service for models you don't control — `Teams::membersOf($team)`, `teamsOf($user)`, `invitationsOf($team)`, `ownersOf($team)`, `isMember()`, `roleOf()`, `seatsUsed()`, `hasAvailableSeats()` — building the relations from `membership.*` config (`team_relationship` / `user_relationship` name the model relations to prefer when they exist). Team keys may be integers, UUIDs/ULIDs or plain strings; set `connection` to keep the pivot and invitations on a central database.
+
+## Documentation
+
+- [Installation](https://packstub.dev/docs/filament-teams/installation)
+- [Members](https://packstub.dev/docs/filament-teams/members)
+- [Invitations](https://packstub.dev/docs/filament-teams/invitations)
+- [Roles and permissions](https://packstub.dev/docs/filament-teams/roles-and-permissions)
+- [Roles with Filament Shield](https://packstub.dev/docs/filament-teams/shield)
+- [Using it with Filament Tenancy](https://packstub.dev/docs/filament-teams/filament-tenancy)
+- [Configuration](https://packstub.dev/docs/filament-teams/configuration)
+- [Testing](https://packstub.dev/docs/filament-teams/testing)
+
+The same pages live in the [`docs/`](https://github.com/packstub/filament-teams/tree/main/docs) directory of this repository.
 
 ## Testing
 
