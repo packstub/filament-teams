@@ -2,6 +2,7 @@
 
 namespace Packstub\Teams\Listeners;
 
+use Filament\Auth\Events\Registered as FilamentRegistered;
 use Illuminate\Auth\Events\Login;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Database\Eloquent\Model;
@@ -18,9 +19,9 @@ class AcceptPendingInvitations
 {
     public function __construct(protected Teams $teams) {}
 
-    public function handle(Login|Registered $event): void
+    public function handle(Login|Registered|FilamentRegistered $event): void
     {
-        $user = $event->user;
+        $user = $event instanceof FilamentRegistered ? $event->getUser() : $event->user;
 
         if (! $user instanceof Model) {
             return;

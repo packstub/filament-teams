@@ -15,6 +15,7 @@ Filament Teams is now free and open source under the MIT license.
 - Re-inviting waits for the resend cooldown, re-sending an expired invitation needs a free seat, and addresses match without regard to case
 - The Role field is a searchable dropdown in Invite member, Change role and Create invite link
 - **Upgrading:** `InviteMemberAction`'s `emails` form data is an array, `Teams::invite()` throws `ResendTooSoon` inside the cooldown, and an override of `inviteMany()` takes `iterable|string`
+- Personal teams are created for people who sign up on the panel's own registration page, and an invitation followed before sign-up is accepted there too
 - Docs: a shorter Features list, and notes on seat checks under concurrency and a `lower(email)` index on PostgreSQL
 
 ## 1.0.0 — 2026-08-26
