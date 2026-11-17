@@ -2,6 +2,7 @@
 
 namespace Packstub\Teams;
 
+use Filament\Auth\Events\Registered as FilamentRegistered;
 use Filament\Facades\Filament;
 use Illuminate\Auth\Events\Login;
 use Illuminate\Auth\Events\Registered;
@@ -45,8 +46,9 @@ class TeamsServiceProvider extends PackageServiceProvider
 
     public function packageBooted(): void
     {
-        Event::listen([Login::class, Registered::class], AcceptPendingInvitations::class);
-        Event::listen(Registered::class, CreatePersonalTeam::class);
+        // Filament's registration page fires its own event, not Laravel's.
+        Event::listen([Login::class, Registered::class, FilamentRegistered::class], AcceptPendingInvitations::class);
+        Event::listen([Registered::class, FilamentRegistered::class], CreatePersonalTeam::class);
 
         $this->app['router']->aliasMiddleware('team.can', RequireTeamPermission::class);
 

@@ -2,6 +2,7 @@
 
 namespace Packstub\Teams\Listeners;
 
+use Filament\Auth\Events\Registered as FilamentRegistered;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Database\Eloquent\Model;
 use Packstub\Teams\Teams;
@@ -14,9 +15,9 @@ class CreatePersonalTeam
 {
     public function __construct(protected Teams $teams) {}
 
-    public function handle(Registered $event): void
+    public function handle(Registered|FilamentRegistered $event): void
     {
-        $user = $event->user;
+        $user = $event instanceof FilamentRegistered ? $event->getUser() : $event->user;
 
         if (! $user instanceof Model || ! $this->teams->createsPersonalTeams()) {
             return;

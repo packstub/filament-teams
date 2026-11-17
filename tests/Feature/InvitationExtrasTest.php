@@ -412,3 +412,52 @@ it('keeps the e-mail lookup indexable where the collation already ignores case',
     'pgsql' => [PostgresConnection::class, 'pgsql', 'where lower("users"."email") = ?'],
     'sqlite' => [SQLiteConnection::class, 'sqlite', 'where lower("users"."email") = ?'],
 ]);
+
+it('creates a personal team for someone who signs up on the panel registration page', function () {
+    TeamsPlugin::make()
+        ->personalTeams(fn (User $user): Team => Team::create(['name' => Teams::personalTeamName($user), 'slug' => 'personal-'.$user->id]))
+        ->register(Filament::getPanel('app'));
+
+    livewire(Register::class)
+        ->fillForm([
+            'name' => 'Nina',
+            'email' => 'nina@example.com',
+            'password' => 'a-long-password',
+            'passwordConfirmation' => 'a-long-password',
+        ])
+        ->call('register')
+        ->assertHasNoFormErrors();
+
+    $nina = User::query()->where('email', 'nina@example.com')->sole();
+    $team = Teams::teamsOf($nina)->sole();
+
+    expect($team->name)->toBe("Nina's Team")
+        ->and(Teams::roleOf($team, $nina))->toBe('owner');
+
+    TeamsPlugin::make()->personalTeams(null)->register(Filament::getPanel('app'));
+});
+
+it('joins the inviting team instead when someone signs up on the panel registration page through an invitation', function () {
+    TeamsPlugin::make()
+        ->personalTeams(fn (User $user): Team => Team::create(['name' => Teams::personalTeamName($user), 'slug' => 'personal-'.$user->id]))
+        ->register(Filament::getPanel('app'));
+
+    $invitation = Teams::invite($this->team, 'invited@example.com');
+    get($invitation->acceptUrl());
+
+    livewire(Register::class)
+        ->fillForm([
+            'name' => 'Ivy',
+            'password' => 'a-long-password',
+            'passwordConfirmation' => 'a-long-password',
+        ])
+        ->call('register')
+        ->assertHasNoFormErrors();
+
+    $ivy = User::query()->where('email', 'invited@example.com')->sole();
+
+    expect(Teams::teamsOf($ivy)->sole()->is($this->team))->toBeTrue()
+        ->and(Teams::roleOf($this->team, $ivy))->toBe('member');
+
+    TeamsPlugin::make()->personalTeams(null)->register(Filament::getPanel('app'));
+});
