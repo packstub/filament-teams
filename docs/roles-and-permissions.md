@@ -31,6 +31,15 @@ Route::get('/reports', ReportsController::class)->middleware('team.can:reports.v
 
 All of them resolve against the current Filament tenant; pass a team explicitly to `@teamcan('update', $team)`.
 
+A member's role is read from the membership table once per request (or queued job) and remembered, so a page full of checks costs one query per user and team. Changes made through `Teams` (adding, removing, changing roles, accepting invitations, transferring ownership) and through the `members()` relation of `HasTeamMembers` are picked up straight away, and Octane and queue workers start each request and job afresh. If you write to the membership table directly, forget the remembered role yourself:
+
+```php
+Teams::forgetRole($team, $user); // one member
+Teams::forgetRoles($team);       // every member of the team
+Teams::forgetRolesOf($user);     // the user in every team
+Teams::forgetRoles();            // everything
+```
+
 ## Role providers
 
 The `RoleProvider` decides where roles come from and what they mean:

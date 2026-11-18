@@ -16,6 +16,12 @@ use Packstub\Teams\Models\TeamInvitation;
  */
 trait HasTeamMembers
 {
+    /** A deleted team's remembered roles go with it. */
+    public static function bootHasTeamMembers(): void
+    {
+        static::deleted(fn (Model $team) => Teams::forgetRoles($team));
+    }
+
     public function members(): BelongsToMany
     {
         $config = config('packstub-teams.membership');
