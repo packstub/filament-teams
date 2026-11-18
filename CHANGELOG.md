@@ -5,6 +5,7 @@ All notable changes to `packstub/filament-teams` are documented here.
 ## Unreleased
 
 - Docs: the README has a Compatibility table and links to every docs page
+- Permission checks are faster: a member's role is read once per request or queued job instead of on every check; after writing to the membership table yourself, call `Teams::forgetRole($team, $user)`
 
 ## 1.1.0 — 2026-11-17
 

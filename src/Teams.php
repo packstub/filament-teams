@@ -33,6 +33,7 @@ use Packstub\Teams\Mail\TeamInvitationMail;
 use Packstub\Teams\Models\Membership;
 use Packstub\Teams\Models\TeamInvitation;
 use Packstub\Teams\Notifications\TeamInvitationNotification;
+use Packstub\Teams\Roles\RoleCache;
 use Packstub\Teams\Roles\RoleProvider;
 use Packstub\Teams\Roles\SimpleRoleProvider;
 use Packstub\Teams\Roles\SpatieRoleProvider;
@@ -351,11 +352,54 @@ class Teams
         return $this->membersOf($team)->whereKey($user->getKey())->exists();
     }
 
+    /**
+     * The user's role in the team, or null for non-members. Remembered for
+     * the rest of the request (or queued job), so userCan(), canManage() and
+     * hasTeamRole() ask the pivot once per user and team.
+     */
     public function roleOf(Model $team, Model $user): ?string
     {
-        $role = $this->membersOf($team)->whereKey($user->getKey())->first()?->pivot?->getAttribute($this->roleColumn());
+        return $this->roleCache()->remember($team, $user, function () use ($team, $user): ?string {
+            $role = $this->membersOf($team)->whereKey($user->getKey())->first()?->pivot?->getAttribute($this->roleColumn());
 
-        return $role === null ? null : (string) $role;
+            return $role === null ? null : (string) $role;
+        });
+    }
+
+    /**
+     * Forget the remembered role of one member, e.g. after writing to the
+     * pivot yourself instead of through Teams.
+     */
+    public function forgetRole(Model $team, Model $user): void
+    {
+        $this->roleCache()->forget($team, $user);
+    }
+
+    /**
+     * Forget remembered roles: every member of $team, or all of them.
+     */
+    public function forgetRoles(?Model $team = null): void
+    {
+        $team === null
+            ? $this->roleCache()->flush()
+            : $this->roleCache()->forgetTeam($team);
+    }
+
+    /**
+     * Forget the user's remembered role in every team.
+     */
+    public function forgetRolesOf(Model $user): void
+    {
+        $this->roleCache()->forgetUser($user);
+    }
+
+    /**
+     * Resolved per call, never held: Teams is a singleton and the cache is
+     * scoped, so a held instance would outlive its request under Octane.
+     */
+    protected function roleCache(): RoleCache
+    {
+        return app(RoleCache::class);
     }
 
     public function seatsUsed(Model $team): int
@@ -418,6 +462,7 @@ class Teams
         });
 
         $this->forgetMembers($team);
+        $this->forgetRole($team, $user);
 
         MemberAdded::dispatch($team, $user, $role);
     }
@@ -442,6 +487,7 @@ class Teams
         });
 
         $this->forgetMembers($team);
+        $this->forgetRole($team, $user);
 
         MemberRoleChanged::dispatch($team, $user, $current, $role);
     }
@@ -460,6 +506,7 @@ class Teams
         });
 
         $this->forgetMembers($team);
+        $this->forgetRole($team, $user);
 
         MemberRemoved::dispatch($team, $user);
     }
@@ -489,6 +536,8 @@ class Teams
         });
 
         $this->forgetMembers($team);
+        $this->forgetRole($team, $from);
+        $this->forgetRole($team, $to);
 
         OwnershipTransferred::dispatch($team, $from, $to);
     }

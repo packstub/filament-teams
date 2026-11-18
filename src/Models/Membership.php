@@ -3,6 +3,7 @@
 namespace Packstub\Teams\Models;
 
 use Illuminate\Database\Eloquent\Relations\Pivot;
+use Packstub\Teams\Roles\RoleCache;
 
 /**
  * The team ⇄ user pivot. Table and column names come from config so an
@@ -11,6 +12,17 @@ use Illuminate\Database\Eloquent\Relations\Pivot;
 class Membership extends Pivot
 {
     public $incrementing = true;
+
+    /**
+     * attach(), detach() and updateExistingPivot() on a relation that uses
+     * this pivot fire these too, so writes that bypass Teams still drop the
+     * remembered roles. The row carries ids only, not models, hence a flush.
+     */
+    protected static function booted(): void
+    {
+        static::saved(fn () => app(RoleCache::class)->flush());
+        static::deleted(fn () => app(RoleCache::class)->flush());
+    }
 
     public function getTable(): string
     {

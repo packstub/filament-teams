@@ -12,6 +12,12 @@ use Packstub\Teams\Facades\Teams;
  */
 trait HasTeamRoles
 {
+    /** A deleted user's remembered roles go with them. */
+    public static function bootHasTeamRoles(): void
+    {
+        static::deleted(fn (Model $user) => Teams::forgetRolesOf($user));
+    }
+
     public function belongsToTeam(Model $team): bool
     {
         return Teams::isMember($team, $this);
